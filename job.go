@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"html/template"
 	"time"
+
+	"github.com/gorhill/cronexpr"
 )
 
 type JobID string
@@ -15,21 +17,21 @@ type Job struct {
 	LambdaFunction       string
 	InputPayloadTemplate []byte
 	Retryer              Retryer
-	CronSchedule         *CronSchedule
+	CronSchedule         *cronexpr.Expression
 	RunAfter             []JobID
 	DoNotOverlap         bool //if true, another run won't be started until the previous runs have completed
 }
 
-func (j *Job) SubmitRun(jc JobContext) (*Run, error) {
+func (j *Job) MakeRun(jc JobContext) (*Run, error) {
 	in, err := renderInput(j.InputPayloadTemplate, jc.PreviousOutput)
 	if err != nil {
 		return nil, err
 	}
-	//TODO: persist to DB
 	return &Run{
-		JobID:   j.ID,
-		Attempt: jc.Attempt + 1,
-		Input:   in,
+		JobID:              j.ID,
+		Attempt:            jc.Attempt + 1,
+		ScheduledStartTime: jc.ScheduledStartTime,
+		Input:              in,
 	}, nil
 }
 
@@ -85,8 +87,9 @@ func (r DefaultRetryer) ShouldRetry(c JobContext) bool {
 }
 
 type JobContext struct {
-	Attempt        int    //starts at 0
-	PreviousOutput []byte //output from previous job
+	Attempt            int       //starts at 0
+	ScheduledStartTime time.Time //time job is scheduled to start
+	PreviousOutput     []byte    //output from previous job
 }
 
 type CronSchedule struct {
