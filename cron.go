@@ -1,9 +1,6 @@
-package lambdapipeline
+package pipeline
 
-import (
-	"fmt"
-	"time"
-)
+import "time"
 
 type CronScheduler struct {
 	Runs chan *Run
@@ -20,11 +17,10 @@ type CronScheduler struct {
 
 func NewCronScheduler(startTime time.Time, lookAhead time.Duration) *CronScheduler {
 	c := &CronScheduler{
-		lastJobTime:      startTime,
-		lookAheadTime:    lookAhead,
-		backgroundTicker: time.NewTicker(time.Second),
-		Runs:             make(chan *Run, 100),
-		Errors:           make(chan error, 100),
+		lastJobTime:   startTime,
+		lookAheadTime: lookAhead,
+		Runs:          make(chan *Run, 100),
+		Errors:        make(chan error, 100),
 	}
 	return c
 }
@@ -50,6 +46,9 @@ func (c *CronScheduler) AddJob(j *Job) {
 }
 
 func (c *CronScheduler) writeErr(e error) {
+	if e == nil {
+		return
+	}
 	//attempts to write to channel
 	//if channel is blocked or nil, the error will be lost
 	select {
@@ -59,18 +58,15 @@ func (c *CronScheduler) writeErr(e error) {
 }
 
 func (c *CronScheduler) addNextJobsToChan() {
-	fmt.Println("running job check")
 	endTime := time.Now().Add(c.lookAheadTime)
 	for _, j := range c.jobs {
-		fmt.Printf("running job check for %s\n", j.ID)
 		t := j.CronSchedule.Next(c.lastJobTime)
 		//get all the runs for this job in the time range
 		for !t.IsZero() && (t.Before(endTime) || t.Equal(endTime)) {
-			fmt.Printf("job within time: %s\n ", t)
 			r, err := j.MakeRun(JobContext{
 				Attempt:            0,
 				ScheduledStartTime: t,
-				PreviousOutput:     nil,
+				PreviousOutput:     []byte("{}"),
 			})
 			if err != nil {
 				c.writeErr(err)

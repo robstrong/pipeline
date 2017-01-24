@@ -1,4 +1,4 @@
-package lambdapipeline
+package pipeline
 
 import (
 	"testing"
@@ -14,12 +14,20 @@ func TestGetJobsForNextHour(t *testing.T) {
 		CronSchedule: cronexpr.MustParse("* * * * *"),
 	})
 	c.Start()
-	time.AfterFunc(time.Second*10, func() {
+	time.AfterFunc(time.Second*2, func() {
 		close(c.Runs)
 	})
-	res := countRuns(c.Runs)
-	if res != 60 {
-		t.Errorf("expected 60 runs, got %d", res)
+	cnt := countRuns(c.Runs)
+	if cnt != 60 {
+		t.Errorf("expected 60 runs, got %d", cnt)
+	}
+	close(c.Errors)
+	select {
+	case err, ok := <-c.Errors:
+		if ok {
+			t.Errorf("unexpected err: %s", err)
+		}
+	default:
 	}
 }
 

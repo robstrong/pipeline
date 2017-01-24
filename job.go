@@ -1,4 +1,4 @@
-package lambdapipeline
+package pipeline
 
 import (
 	"bytes"
@@ -14,8 +14,8 @@ type JobID string
 type Job struct {
 	ID                   JobID
 	Name                 string
-	LambdaFunction       string
-	InputPayloadTemplate []byte
+	Processor            RunProcessor
+	InputPayloadTemplate json.RawMessage
 	Retryer              Retryer
 	CronSchedule         *cronexpr.Expression
 	RunAfter             []JobID
@@ -35,7 +35,7 @@ func (j *Job) MakeRun(jc JobContext) (*Run, error) {
 	}, nil
 }
 
-func renderInput(tmpl []byte, data []byte) ([]byte, error) {
+func renderInput(tmpl []byte, data json.RawMessage) ([]byte, error) {
 	var f interface{}
 	err := json.Unmarshal(data, &f)
 	if err != nil {
@@ -62,14 +62,15 @@ const (
 type Run struct {
 	JobID              JobID
 	RunID              string
+	Processor          RunProcessor
 	Status             RunStatus
 	ScheduledStartTime time.Time
 	StartTime          time.Time
 	EndTime            time.Time
 	Attempt            int
 	Success            bool
-	Input              []byte
-	Output             []byte
+	Input              json.RawMessage
+	Output             json.RawMessage
 	Log                []byte
 }
 
@@ -87,21 +88,7 @@ func (r DefaultRetryer) ShouldRetry(c JobContext) bool {
 }
 
 type JobContext struct {
-	Attempt            int       //starts at 0
-	ScheduledStartTime time.Time //time job is scheduled to start
-	PreviousOutput     []byte    //output from previous job
-}
-
-type CronSchedule struct {
-	Minute     int
-	Hour       int
-	DayOfMonth int
-	Month      int
-	DayOfWeek  int
-}
-
-type RunResult struct {
-	RunID   string
-	Output  []byte
-	Success bool
+	Attempt            int             //starts at 0
+	ScheduledStartTime time.Time       //time job is scheduled to start
+	PreviousOutput     json.RawMessage //output from previous job
 }
