@@ -10,7 +10,7 @@ import (
 func TestGetJobsForNextHour(t *testing.T) {
 	c := NewCronScheduler(time.Now(), time.Hour)
 	c.AddJob(&Job{
-		ID:           "test job",
+		ID:           123,
 		CronSchedule: cronexpr.MustParse("* * * * *"),
 	})
 	c.Start()

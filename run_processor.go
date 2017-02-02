@@ -11,11 +11,13 @@ import (
 )
 
 type RunProcessor interface {
+	json.Marshaler
+	json.Unmarshaler
 	Process(json.RawMessage) (*RunResult, error)
 }
 
 type RunResult struct {
-	RunID   string
+	RunID   RunID
 	Output  json.RawMessage
 	Detail  string
 	Success bool
@@ -25,6 +27,13 @@ type RunResult struct {
 type LambdaProcessor struct {
 	FunctionName string
 	LambdaClient *lambda.Lambda
+}
+
+func (p *LambdaProcessor) MarshalJSON() ([]byte, error) {
+	return nil, nil
+}
+func (p *LambdaProcessor) UnmarshalJSON([]byte) error {
+	return nil
 }
 
 func (p *LambdaProcessor) Process(m json.RawMessage) (*RunResult, error) {

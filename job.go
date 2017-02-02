@@ -4,12 +4,20 @@ import (
 	"bytes"
 	"encoding/json"
 	"html/template"
+	"strconv"
 	"time"
 
 	"github.com/gorhill/cronexpr"
 )
 
-type JobID string
+type JobID uint64
+
+func (j JobID) String() string {
+	return strconv.FormatInt(int64(j), 10)
+}
+func (j JobID) Bytes() []byte {
+	return []byte(strconv.FormatInt(int64(j), 10))
+}
 
 type Job struct {
 	ID                   JobID
@@ -19,7 +27,7 @@ type Job struct {
 	Retryer              Retryer
 	CronSchedule         *cronexpr.Expression
 	RunAfter             []JobID
-	DoNotOverlap         bool //if true, another run won't be started until the previous runs have completed
+	//DoNotOverlap         bool //if true, another run won't be started until the previous runs have completed
 }
 
 func (j *Job) MakeRun(jc JobContext) (*Run, error) {
@@ -59,9 +67,23 @@ const (
 	RunStatusComplete RunStatus = "complete"
 )
 
+func (r RunStatus) Ptr() *RunStatus {
+	return &r
+}
+
+type RunID uint64
+
+func (r RunID) String() string {
+	return strconv.FormatInt(int64(r), 10)
+}
+
+func (r RunID) Bytes() []byte {
+	return []byte(strconv.FormatInt(int64(r), 10))
+}
+
 type Run struct {
 	JobID              JobID
-	RunID              string
+	RunID              RunID
 	Processor          RunProcessor
 	Status             RunStatus
 	ScheduledStartTime time.Time
@@ -74,7 +96,11 @@ type Run struct {
 	Log                []byte
 }
 
-type Retryer func(JobContext) bool
+type Retryer interface {
+	json.Marshaler
+	json.Unmarshaler
+	ShouldRetry(JobContext) bool
+}
 
 type DefaultRetryer struct {
 	NumRetries int

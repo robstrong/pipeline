@@ -20,31 +20,14 @@ func NewService(r Repository) *Service {
 	}
 }
 
-type Repository interface {
-	GetJobs() ([]*Job, error)
-	GetRecentRuns(start time.Time) ([]*Run, error)
-	GetRunsForJob(id JobID) ([]*Run, error)
-	CreateJob(j CreateJob) error
-	UpdateJob(j UpdateJob) error
-	ScheduleRun(id JobID, start time.Time) (*Run, error)
-	//Should return pending runs that are scheduled for <= now
-	GetPendingRuns() ([]*Run, error)
-	//Should update the run with id RunResult.RunID with the results
-	SaveRunResult(*RunResult) error
-}
-
-type CreateJob struct {
-	Name string
-}
-
-type UpdateJob struct {
-	Name *string
-}
-
 // blocking
 func (s *Service) ListenAndServe() error {
 	go s.startBackgroundWorker()
 	return nil
+}
+
+func TimePtr(t time.Time) *time.Time {
+	return &t
 }
 
 func (s *Service) startBackgroundWorker() {
@@ -54,7 +37,10 @@ func (s *Service) startBackgroundWorker() {
 		select {
 		case <-ticker.C:
 			//check for new runs to start
-			rs, err := s.repo.GetPendingRuns()
+			rs, err := s.repo.GetRuns(&GetRunsInput{
+				Status:          RunStatusPending.Ptr(),
+				StartTimeBefore: TimePtr(time.Now()),
+			})
 			if err != nil {
 				s.log.Printf("err getting pending runs: %s", err)
 				continue
@@ -74,13 +60,21 @@ func (s *Service) startBackgroundWorker() {
 
 		case res := <-s.finishedRuns:
 			//save the result of runs
-			err := s.repo.SaveRunResult(res)
+			err := s.repo.UpdateRun(&UpdateRunInput{
+				RunID:        RunID(res.RunID),
+				Output:       res.Output,
+				StatusDetail: &res.Detail,
+				Log:          res.Log,
+				Success:      &res.Success,
+			})
 			if err != nil {
 				s.log.Printf("err saving run result: %s", err)
 				continue
 			}
-			if !res.Success {
+			if res.Success {
 				//rerun if necessary
+			} else {
+
 			}
 		}
 	}
