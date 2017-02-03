@@ -16,7 +16,7 @@ func (j JobID) String() string {
 	return strconv.FormatInt(int64(j), 10)
 }
 func (j JobID) Bytes() []byte {
-	return []byte(strconv.FormatInt(int64(j), 10))
+	return []byte(strconv.FormatUint(uint64(j), 10))
 }
 
 type Job struct {
@@ -41,6 +41,14 @@ func (j *Job) MakeRun(jc JobContext) (*Run, error) {
 		ScheduledStartTime: jc.ScheduledStartTime,
 		Input:              in,
 	}, nil
+}
+
+func (j *Job) String() string {
+	d, err := json.MarshalIndent(j, "", "  ")
+	if err != nil {
+		return ""
+	}
+	return string(d)
 }
 
 func renderInput(tmpl []byte, data json.RawMessage) ([]byte, error) {
@@ -97,8 +105,6 @@ type Run struct {
 }
 
 type Retryer interface {
-	json.Marshaler
-	json.Unmarshaler
 	ShouldRetry(JobContext) bool
 }
 

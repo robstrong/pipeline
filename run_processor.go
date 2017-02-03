@@ -11,8 +11,6 @@ import (
 )
 
 type RunProcessor interface {
-	json.Marshaler
-	json.Unmarshaler
 	Process(json.RawMessage) (*RunResult, error)
 }
 
@@ -75,3 +73,28 @@ func NewDebugProcessor(w io.Writer) *DebugProcessor {
 func (p *DebugProcessor) Process(m json.RawMessage) (*RunResult, error) {
 	return &RunResult{Success: true}, nil
 }
+
+/*
+func (p *DebugProcessor) MarshalJSON() ([]byte, error) {
+		type Alias DebugProcessor
+	aux := struct {
+		*Alias
+	}{
+		Alias: (*Alias)(p),
+	}
+	if err := json.Unmarshal(d, &aux); err != nil {
+		return err
+	}
+	if p == nil {
+		return nil, nil
+	}
+	return json.Marshal(p)
+}
+
+func (p *DebugProcessor) UnmarshalJSON(d []byte) error {
+	if p == nil {
+		p = &DebugProcessor{}
+	}
+	return json.Unmarshal(d, p)
+}
+*/

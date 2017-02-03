@@ -19,7 +19,6 @@ type Repository interface {
 
 type GetJobsInput struct {
 	JobIDs []JobID
-	RunsOn []JobID
 }
 
 type GetRunsInput struct {

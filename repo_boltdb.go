@@ -2,6 +2,7 @@ package pipeline
 
 import (
 	"encoding/json"
+	"fmt"
 
 	"github.com/boltdb/bolt"
 	"github.com/pkg/errors"
@@ -59,23 +60,54 @@ func (b *BoltDB) CreateJob(c *CreateJobInput) (*Job, error) {
 		return nil, errors.New("invalid CreateJobInput")
 	}
 
-	var id uint64
-	j := Job{
-		ID:                   JobID(id),
-		Name:                 c.Name,
-		InputPayloadTemplate: c.InputPayloadTemplate,
-	}
-	d, err := json.Marshal(j)
-	if err != nil {
-		return nil, errors.Wrap(err, "could not marshal Job")
-	}
+	var j Job
 	//save
-	err = b.DB.Update(func(tx *bolt.Tx) error {
+	err := b.DB.Update(func(tx *bolt.Tx) error {
 		bkt := tx.Bucket(JobsBucket.Bytes())
-		id, _ = bkt.NextSequence()
+		id, _ := bkt.NextSequence()
+		j = Job{
+			ID:                   JobID(id),
+			Name:                 c.Name,
+			InputPayloadTemplate: c.InputPayloadTemplate,
+			Processor:            &DebugProcessor{},
+		}
+		d, err := json.Marshal(j)
+		if err != nil {
+			return errors.Wrap(err, "could not marshal Job")
+		}
+		fmt.Printf("Put: %s, d: %s\n", j.ID.Bytes(), d)
 		return bkt.Put(j.ID.Bytes(), d)
 	})
+	if err != nil {
+		return nil, err
+	}
 
-	j.ID = JobID(id)
 	return &j, nil
+}
+
+func (b *BoltDB) GetJobs(in *GetJobsInput) ([]*Job, error) {
+	if in == nil {
+		return nil, errors.New("invalid GetJobsInput")
+	}
+
+	var jobs []*Job
+	err := b.DB.View(func(tx *bolt.Tx) error {
+		bkt := tx.Bucket(JobsBucket.Bytes())
+		for _, jid := range in.JobIDs {
+			res := bkt.Get(jid.Bytes())
+			job := Job{}
+			err := json.Unmarshal(res, &job)
+			if err != nil {
+				//TODO: log error
+				continue
+			}
+			jobs = append(jobs, &job)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return jobs, nil
 }
