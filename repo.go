@@ -51,25 +51,23 @@ type UpdateRunInput struct {
 	EndTime      *time.Time
 	Attempt      *int
 	Success      *bool
-	Input        json.RawMessage
-	Output       json.RawMessage
+	Input        []byte
+	Output       []byte
 	Log          []byte
 }
 
 type CreateJobInput struct {
 	Name                 string
 	Processor            RunProcessor
-	InputPayloadTemplate json.RawMessage
+	InputPayloadTemplate []byte
 	Retryer              Retryer
 	CronSchedule         *cronexpr.Expression
-	RunAfter             []*JobID
 }
 
 type UpdateJobInput struct {
 	Name                 *string
 	Processor            RunProcessor
-	InputPayloadTemplate json.RawMessage
+	InputPayloadTemplate []byte
 	Retryer              Retryer
 	CronSchedule         *cronexpr.Expression
-	RunAfter             []*JobID
 }

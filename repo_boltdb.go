@@ -48,10 +48,7 @@ func (b *BoltDB) MigrateDB() error {
 			return err
 		}
 		b.runBucket, err = tx.CreateBucketIfNotExists(RunsBucket.Bytes())
-		if err != nil {
-			return err
-		}
-		return nil
+		return err
 	})
 }
 
@@ -61,7 +58,6 @@ func (b *BoltDB) CreateJob(c *CreateJobInput) (*Job, error) {
 	}
 
 	var j Job
-	//save
 	err := b.DB.Update(func(tx *bolt.Tx) error {
 		bkt := tx.Bucket(JobsBucket.Bytes())
 		id, _ := bkt.NextSequence()
@@ -69,8 +65,8 @@ func (b *BoltDB) CreateJob(c *CreateJobInput) (*Job, error) {
 			ID:                   JobID(id),
 			Name:                 c.Name,
 			InputPayloadTemplate: c.InputPayloadTemplate,
-			Processor:            &DebugProcessor{},
 		}
+		//TODO: possible to move marshalling out of tx?
 		d, err := json.Marshal(j)
 		if err != nil {
 			return errors.Wrap(err, "could not marshal Job")

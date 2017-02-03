@@ -9,7 +9,10 @@ func TestJobCreateAndGet(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	j1, err := db.CreateJob(&CreateJobInput{})
+	j1, err := db.CreateJob(&CreateJobInput{
+		Name:                 "job name",
+		InputPayloadTemplate: nil,
+	})
 	if err != nil {
 		t.Fatal(err)
 	}

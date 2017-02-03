@@ -23,10 +23,9 @@ type Job struct {
 	ID                   JobID
 	Name                 string
 	Processor            RunProcessor
-	InputPayloadTemplate json.RawMessage
+	InputPayloadTemplate []byte
 	Retryer              Retryer
 	CronSchedule         *cronexpr.Expression
-	RunAfter             []JobID
 	//DoNotOverlap         bool //if true, another run won't be started until the previous runs have completed
 }
 
@@ -46,12 +45,12 @@ func (j *Job) MakeRun(jc JobContext) (*Run, error) {
 func (j *Job) String() string {
 	d, err := json.MarshalIndent(j, "", "  ")
 	if err != nil {
-		return ""
+		return err.Error()
 	}
 	return string(d)
 }
 
-func renderInput(tmpl []byte, data json.RawMessage) ([]byte, error) {
+func renderInput(tmpl []byte, data []byte) ([]byte, error) {
 	var f interface{}
 	err := json.Unmarshal(data, &f)
 	if err != nil {
@@ -113,10 +112,7 @@ type DefaultRetryer struct {
 }
 
 func (r DefaultRetryer) ShouldRetry(c JobContext) bool {
-	if c.Attempt >= r.NumRetries {
-		return false
-	}
-	return true
+	return c.Attempt < r.NumRetries
 }
 
 type JobContext struct {
