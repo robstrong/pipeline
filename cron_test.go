@@ -7,10 +7,13 @@ import (
 
 func TestGetJobsForNextHour(t *testing.T) {
 	c := NewCronScheduler(time.Now(), time.Hour)
-	c.AddJob(&Job{
+	err := c.AddJob(&Job{
 		ID:           123,
 		CronSchedule: CronSchedule("* * * * *"),
 	})
+	if err != nil {
+		t.Fatal(err)
+	}
 	c.Start()
 	time.AfterFunc(time.Second*2, func() {
 		close(c.Runs)

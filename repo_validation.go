@@ -59,10 +59,6 @@ func (in *CreateJobInput) Validate() error {
 		errs = append(errs, ErrFieldRequired{"Name"})
 	}
 
-	if in.Processor == nil {
-		errs = append(errs, ErrFieldRequired{"Processor"})
-	}
-
 	if in.Retryer == nil {
 		errs = append(errs, ErrFieldRequired{"Retryer"})
 	}

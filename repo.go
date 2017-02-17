@@ -27,44 +27,37 @@ type GetRunsInput struct {
 }
 
 type CreateRunInput struct {
-	JobID              *JobID
-	Processor          RunProcessor
+	JobID              JobID
+	Processor          ProcessorConfig
 	Status             RunStatus
-	StatusDetail       *string
-	ScheduledStartTime *time.Time
-	StartTime          *time.Time
-	EndTime            *time.Time
-	Attempt            *int
-	Success            *bool
+	ScheduledStartTime time.Time
+	Attempt            int
 	Input              *json.RawMessage
-	Output             *json.RawMessage
-	Log                []byte
 }
+
 type UpdateRunInput struct {
 	RunID        RunID
-	Processor    RunProcessor
 	Status       *RunStatus
 	StatusDetail *string
 	StartTime    *time.Time
 	EndTime      *time.Time
-	Attempt      *int
 	Success      *bool
-	Input        []byte
 	Output       []byte
 	Log          []byte
 }
 
 type CreateJobInput struct {
 	Name                 string
-	Processor            RunProcessor
+	Processor            ProcessorConfig
 	InputPayloadTemplate []byte
 	Retryer              Retryer
 	CronSchedule         *CronSchedule
 }
 
 type UpdateJobInput struct {
+	JobID                JobID
 	Name                 *string
-	Processor            RunProcessor
+	Processor            *ProcessorConfig
 	InputPayloadTemplate []byte
 	Retryer              Retryer
 	CronSchedule         *CronSchedule

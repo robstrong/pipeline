@@ -30,7 +30,7 @@ func MakeInts(js []JobID) []int64 {
 type Job struct {
 	ID                   JobID
 	Name                 string
-	Processor            RunProcessor
+	Processor            ProcessorConfig
 	InputPayloadTemplate []byte
 	Retryer              Retryer
 	CronSchedule         CronSchedule
@@ -107,6 +107,7 @@ type Run struct {
 	JobID              JobID
 	Processor          RunProcessor
 	Status             RunStatus
+	StatusDetail       string
 	ScheduledStartTime time.Time
 	StartTime          time.Time
 	EndTime            time.Time
@@ -117,7 +118,12 @@ type Run struct {
 	Log                []byte
 }
 
+type Serializer interface {
+	Serialize() ([]byte, error)
+	Deserialize([]byte) error
+}
 type Retryer interface {
+	Serializer
 	ShouldRetry(JobContext) bool
 }
 

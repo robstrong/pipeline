@@ -2,15 +2,41 @@ package pipeline
 
 import (
 	"encoding/json"
+	"errors"
 	"io"
 	"log"
 	"os"
 )
 
 type RunProcessor interface {
+	Serializer
 	Process(json.RawMessage) (*RunResult, error)
-	Serialize() ([]byte, error)
-	Deserialize([]byte) error
+}
+
+type ProcessorConfig struct {
+	Type   string
+	Config []byte
+}
+
+type ProcessorMaker func(config []byte) (RunProcessor, error)
+type ProcessorFactory map[string]ProcessorMaker
+
+func (pf ProcessorFactory) Add(processorType string, f ProcessorMaker) {
+	if pf == nil {
+		pf = ProcessorFactory{}
+	}
+	pf[processorType] = f
+}
+
+func (pf ProcessorFactory) Make(c ProcessorConfig) (RunProcessor, error) {
+	if pf == nil {
+		return nil, errors.New("ProcessorFactory not initialized")
+	}
+	m, ok := pf[c.Type]
+	if !ok {
+		return nil, errors.New("ProcessorMaker not found: " + c.Type)
+	}
+	return m(c.Config)
 }
 
 type RunResult struct {

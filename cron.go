@@ -23,6 +23,8 @@ func NewCronScheduler(startTime time.Time, lookAhead time.Duration) *CronSchedul
 		lookAheadTime: lookAhead,
 		Runs:          make(chan *Run, 100),
 		Errors:        make(chan error, 100),
+		jobs:          map[JobID]*Job{},
+		crons:         map[JobID]*cronexpr.Expression{},
 	}
 	return c
 }
