@@ -33,8 +33,14 @@ type Job struct {
 	Processor            RunProcessor
 	InputPayloadTemplate []byte
 	Retryer              Retryer
-	CronSchedule         *cronexpr.Expression
+	CronSchedule         CronSchedule
 	//DoNotOverlap         bool //if true, another run won't be started until the previous runs have completed
+}
+
+type CronSchedule string
+
+func (c CronSchedule) Expression() (*cronexpr.Expression, error) {
+	return cronexpr.Parse(string(c))
 }
 
 func (j *Job) MakeRun(jc JobContext) (*Run, error) {
@@ -97,8 +103,8 @@ func (r RunID) Bytes() []byte {
 }
 
 type Run struct {
-	JobID              JobID
 	RunID              RunID
+	JobID              JobID
 	Processor          RunProcessor
 	Status             RunStatus
 	ScheduledStartTime time.Time

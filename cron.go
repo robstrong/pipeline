@@ -1,6 +1,7 @@
 package pipeline
 
 import "time"
+import "github.com/gorhill/cronexpr"
 
 type CronScheduler struct {
 	Runs chan *Run
@@ -12,7 +13,8 @@ type CronScheduler struct {
 	lastJobTime      time.Time
 	lookAheadTime    time.Duration
 	backgroundTicker *time.Ticker
-	jobs             []*Job
+	jobs             map[JobID]*Job
+	crons            map[JobID]*cronexpr.Expression
 }
 
 func NewCronScheduler(startTime time.Time, lookAhead time.Duration) *CronScheduler {
@@ -41,8 +43,19 @@ func (c *CronScheduler) Start() {
 	}()
 }
 
-func (c *CronScheduler) AddJob(j *Job) {
-	c.jobs = append(c.jobs, j)
+const ErrCronSchedulerJobAlreadyAdded = Err("job already added to cron")
+
+func (c *CronScheduler) AddJob(j *Job) error {
+	expr, err := j.CronSchedule.Expression()
+	if err != nil {
+		return err
+	}
+	if _, ok := c.jobs[j.ID]; ok {
+		return ErrCronSchedulerJobAlreadyAdded
+	}
+	c.jobs[j.ID] = j
+	c.crons[j.ID] = expr
+	return nil
 }
 
 func (c *CronScheduler) writeErr(e error) {
@@ -59,8 +72,8 @@ func (c *CronScheduler) writeErr(e error) {
 
 func (c *CronScheduler) addNextJobsToChan() {
 	endTime := time.Now().Add(c.lookAheadTime)
-	for _, j := range c.jobs {
-		t := j.CronSchedule.Next(c.lastJobTime)
+	for jID, j := range c.jobs {
+		t := c.crons[jID].Next(c.lastJobTime)
 		//get all the runs for this job in the time range
 		for !t.IsZero() && (t.Before(endTime) || t.Equal(endTime)) {
 			r, err := j.MakeRun(JobContext{
@@ -73,7 +86,7 @@ func (c *CronScheduler) addNextJobsToChan() {
 				continue
 			}
 			c.Runs <- r
-			t = j.CronSchedule.Next(t)
+			t = c.crons[jID].Next(t)
 		}
 	}
 

@@ -12,9 +12,9 @@ func (v *ValidationWrapper) GetJobs(in *GetJobsInput) ([]*Job, error) {
 	}
 	return v.repo.GetJobs(in)
 }
-func (v *ValidationWrapper) CreateJob(in *CreateJobInput) (*Job, error) {
+func (v *ValidationWrapper) CreateJob(in *CreateJobInput) (JobID, error) {
 	if err := in.Validate(); err != nil {
-		return nil, err
+		return 0, err
 	}
 	return v.repo.CreateJob(in)
 }
@@ -32,9 +32,9 @@ func (v *ValidationWrapper) GetRuns(in *GetRunsInput) ([]*Run, error) {
 	}
 	return v.repo.GetRuns(in)
 }
-func (v *ValidationWrapper) CreateRun(in *CreateRunInput) (*Run, error) {
+func (v *ValidationWrapper) CreateRun(in *CreateRunInput) (RunID, error) {
 	if err := in.Validate(); err != nil {
-		return nil, err
+		return 0, err
 	}
 	return v.repo.CreateRun(in)
 }

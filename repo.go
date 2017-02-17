@@ -3,17 +3,15 @@ package pipeline
 import (
 	"encoding/json"
 	"time"
-
-	"github.com/gorhill/cronexpr"
 )
 
 type Repository interface {
 	GetJobs(*GetJobsInput) ([]*Job, error)
-	CreateJob(j *CreateJobInput) (*Job, error)
+	CreateJob(j *CreateJobInput) (JobID, error)
 	UpdateJob(j *UpdateJobInput) error
 
 	GetRuns(*GetRunsInput) ([]*Run, error)
-	CreateRun(*CreateRunInput) (*Run, error)
+	CreateRun(*CreateRunInput) (RunID, error)
 	UpdateRun(*UpdateRunInput) error
 }
 
@@ -25,7 +23,7 @@ type GetRunsInput struct {
 	JobID           *JobID
 	Status          *RunStatus
 	StartTimeBefore *time.Time //causes OrderBy to be set to 'startTime'
-	OrderBy         *string    //startTime or createdTime
+	OrderBy         *string    //start_time or created_time
 }
 
 type CreateRunInput struct {
@@ -61,7 +59,7 @@ type CreateJobInput struct {
 	Processor            RunProcessor
 	InputPayloadTemplate []byte
 	Retryer              Retryer
-	CronSchedule         *cronexpr.Expression
+	CronSchedule         *CronSchedule
 }
 
 type UpdateJobInput struct {
@@ -69,5 +67,5 @@ type UpdateJobInput struct {
 	Processor            RunProcessor
 	InputPayloadTemplate []byte
 	Retryer              Retryer
-	CronSchedule         *cronexpr.Expression
+	CronSchedule         *CronSchedule
 }

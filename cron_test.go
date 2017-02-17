@@ -3,15 +3,13 @@ package pipeline
 import (
 	"testing"
 	"time"
-
-	"github.com/gorhill/cronexpr"
 )
 
 func TestGetJobsForNextHour(t *testing.T) {
 	c := NewCronScheduler(time.Now(), time.Hour)
 	c.AddJob(&Job{
 		ID:           123,
-		CronSchedule: cronexpr.MustParse("* * * * *"),
+		CronSchedule: CronSchedule("* * * * *"),
 	})
 	c.Start()
 	time.AfterFunc(time.Second*2, func() {

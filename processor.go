@@ -8,7 +8,6 @@ import (
 )
 
 type RunProcessor interface {
-	Init() error
 	Process(json.RawMessage) (*RunResult, error)
 	Serialize() ([]byte, error)
 	Deserialize([]byte) error
