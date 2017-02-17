@@ -19,6 +19,14 @@ func (j JobID) Bytes() []byte {
 	return []byte(strconv.FormatUint(uint64(j), 10))
 }
 
+func MakeInts(js []JobID) []int64 {
+	is := make([]int64, len(js))
+	for i, j := range js {
+		is[i] = int64(j)
+	}
+	return is
+}
+
 type Job struct {
 	ID                   JobID
 	Name                 string
