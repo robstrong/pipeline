@@ -4,12 +4,14 @@ import (
 	"database/sql"
 	_ "github.com/mattn/go-sqlite3"
 	"os"
+	"reflect"
 	"testing"
 )
 
-func TestSQLiteJob(t *testing.T) {
-	db, err := sql.Open("sqlite3", "./test.db")
-	defer os.Remove("./test.db")
+const testDBPath = "./test.db"
+
+func getRepo(t *testing.T) *SQLiteRepo {
+	db, err := sql.Open("sqlite3", testDBPath)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -18,32 +20,59 @@ func TestSQLiteJob(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	cs := CronSchedule("* * * * *")
-	jID, err := r.CreateJob(&CreateJobInput{
-		Name: "test1",
-		Processor: ProcessorConfig{
-			Type:   "processortype",
-			Config: []byte("pconfig"),
+	return r
+}
+
+func TestSQLiteJob(t *testing.T) {
+	r := getRepo(t)
+	defer os.Remove(testDBPath)
+	tests := []struct {
+		name     string
+		input    *CreateJobInput
+		expected *Job
+	}{
+		{
+			name: "use all fields",
+			input: &CreateJobInput{
+				Name: "test1",
+				Processor: ProcessorConfig{
+					Type:   "processortype",
+					Config: []byte("pconfig"),
+				},
+				InputPayloadTemplate: []byte("payload"),
+				CronSchedule:         NewCronSchedule("* * * * *"),
+			},
+			expected: &Job{
+				ID:   1,
+				Name: "test1",
+				Processor: ProcessorConfig{
+					Type:   "processortype",
+					Config: []byte("pconfig"),
+				},
+				InputPayloadTemplate: []byte("payload"),
+				CronSchedule:         CronSchedule("* * * * *"),
+			},
 		},
-		InputPayloadTemplate: []byte("payload"),
-		CronSchedule:         &cs,
-	})
-	if err != nil {
-		t.Fatal(err)
 	}
 
-	jobs, err := r.GetJobs(&GetJobsInput{JobIDs: []JobID{jID}})
-	if err != nil {
-		t.Fatal(err)
-	}
+	for _, test := range tests {
+		jID, err := r.CreateJob(test.input)
+		if err != nil {
+			t.Fatal(err)
+		}
 
-	if len(jobs) != 1 {
-		t.Errorf("expected 1 job, got %d", len(jobs))
-		t.FailNow()
-	}
-	job := jobs[0]
+		jobs, err := r.GetJobs(&GetJobsInput{JobIDs: []JobID{jID}})
+		if err != nil {
+			t.Fatal(err)
+		}
 
-	if job.Name != "test1" {
-		t.Errorf("name does not match expected")
+		if len(jobs) != 1 {
+			t.Errorf("expected 1 job, got %d", len(jobs))
+			t.FailNow()
+		}
+		job := jobs[0]
+		if !reflect.DeepEqual(test.expected, job) {
+			t.Errorf("expected %+v, got %+v", test.expected, job)
+		}
 	}
 }

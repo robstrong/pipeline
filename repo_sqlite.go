@@ -7,17 +7,17 @@ import (
 )
 
 type SQLiteRepo struct {
-	conn *sql.DB
+	DB *sql.DB
 }
 
 func NewSQLiteRepo(c *sql.DB) *SQLiteRepo {
-	return &SQLiteRepo{conn: c}
+	return &SQLiteRepo{DB: c}
 }
 
 func (s *SQLiteRepo) MigrateDB() error {
-	_, err := s.conn.Exec(`
+	_, err := s.DB.Exec(`
 	CREATE TABLE IF NOT EXISTS jobs (
-		id INT PRIMARY KEY,
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		name TEXT,
 		input_payload_template TEXT,
 		processor_config TEXT,
@@ -27,9 +27,9 @@ func (s *SQLiteRepo) MigrateDB() error {
 	if err != nil {
 		return err
 	}
-	_, err = s.conn.Exec(`
+	_, err = s.DB.Exec(`
 	CREATE TABLE IF NOT EXISTS runs (
-		id INT PRIMARY KEY,
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		job_id INT NOT NULL,
 		processor_config TEXT NOT NULL,
         status TEXT NOT NULL,
@@ -49,7 +49,14 @@ func (s *SQLiteRepo) MigrateDB() error {
 
 func (s *SQLiteRepo) GetJobs(in *GetJobsInput) ([]*Job, error) {
 	//build SQL
-	sqQuery := sq.Select("id", "name", "input_payload_template", "processor_config", "retryer_config").
+	sqQuery := sq.Select(
+		"id",
+		"name",
+		"input_payload_template",
+		"processor_config",
+		"retryer_config",
+		"cron_schedule",
+	).
 		From("jobs").
 		Where(sq.Eq{"jobs.id": MakeInts(in.JobIDs)})
 	query, args, err := sqQuery.ToSql()
@@ -57,7 +64,7 @@ func (s *SQLiteRepo) GetJobs(in *GetJobsInput) ([]*Job, error) {
 		return nil, err
 	}
 	//run query
-	rows, err := s.conn.Query(query, args...)
+	rows, err := s.DB.Query(query, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -65,18 +72,25 @@ func (s *SQLiteRepo) GetJobs(in *GetJobsInput) ([]*Job, error) {
 	jobs := []*Job{}
 	for rows.Next() {
 		job := Job{}
-		var processor, retryer string
+		var processor, retryer []byte
+		var cronSchedule string
 		err := rows.Scan(
 			&job.ID,
 			&job.Name,
 			&job.InputPayloadTemplate,
 			&processor,
 			&retryer,
+			&cronSchedule,
 		)
 		if err != nil {
 			return nil, err
 		}
-		//TODO: add logic for deserializing processor/retryer
+		procConfig := ProcessorConfig{}
+		if err := json.Unmarshal(processor, &procConfig); err != nil {
+			return nil, err
+		}
+		job.Processor = procConfig
+		job.CronSchedule = CronSchedule(cronSchedule)
 		jobs = append(jobs, &job)
 	}
 	if rows.Err() != nil {
@@ -90,14 +104,18 @@ func (s *SQLiteRepo) CreateJob(j *CreateJobInput) (JobID, error) {
 	if err != nil {
 		return 0, err
 	}
+	cronSchedule := ""
+	if j.CronSchedule != nil {
+		cronSchedule = string(*j.CronSchedule)
+	}
 	insert := sq.Insert("jobs").
 		Columns("name", "processor_config", "input_payload_template", "retryer_config", "cron_schedule").
-		Values(j.Name, processor, j.InputPayloadTemplate, "", "")
+		Values(j.Name, processor, j.InputPayloadTemplate, "", cronSchedule)
 	insertSQL, args, err := insert.ToSql()
 	if err != nil {
 		return 0, err
 	}
-	res, err := s.conn.Exec(insertSQL, args...)
+	res, err := s.DB.Exec(insertSQL, args...)
 	if err != nil {
 		return 0, err
 	}
@@ -137,7 +155,7 @@ func (s *SQLiteRepo) UpdateJob(j *UpdateJobInput) error {
 	if err != nil {
 		return err
 	}
-	_, err = s.conn.Exec(updateSQL, args)
+	_, err = s.DB.Exec(updateSQL, args)
 	return err
 }
 
@@ -178,7 +196,7 @@ func (s *SQLiteRepo) GetRuns(in *GetRunsInput) ([]*Run, error) {
 		return nil, err
 	}
 	//run query
-	rows, err := s.conn.Query(query, args)
+	rows, err := s.DB.Query(query, args)
 	if err != nil {
 		return nil, err
 	}
@@ -225,7 +243,7 @@ func (s *SQLiteRepo) CreateRun(in *CreateRunInput) (RunID, error) {
 	if err != nil {
 		return 0, err
 	}
-	res, err := s.conn.Exec(insertSQL, args)
+	res, err := s.DB.Exec(insertSQL, args)
 	if err != nil {
 		return 0, err
 	}
@@ -262,6 +280,6 @@ func (s *SQLiteRepo) UpdateRun(in *UpdateRunInput) error {
 	if err != nil {
 		return err
 	}
-	_, err = s.conn.Exec(updateSQL, args)
+	_, err = s.DB.Exec(updateSQL, args)
 	return err
 }

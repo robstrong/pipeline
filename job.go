@@ -39,6 +39,11 @@ type Job struct {
 
 type CronSchedule string
 
+func NewCronSchedule(s string) *CronSchedule {
+	cs := CronSchedule(s)
+	return &cs
+}
+
 func (c CronSchedule) Expression() (*cronexpr.Expression, error) {
 	return cronexpr.Parse(string(c))
 }
