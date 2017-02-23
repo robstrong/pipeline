@@ -52,8 +52,8 @@ func TestSQLiteJob(t *testing.T) {
 				InputPayloadTemplate: []byte("payload"),
 				Triggers: &TriggerEventsInput{
 					CronSchedule: NewCronSchedule("* * * * *"),
-					JobSuccess:   []JobID{JobID(1)},
-					JobFailure:   []JobID{JobID(1)},
+					JobSuccess:   []JobID{JobID(3)},
+					JobFailure:   []JobID{JobID(2)},
 				},
 			},
 			expected: &Job{
@@ -70,8 +70,8 @@ func TestSQLiteJob(t *testing.T) {
 				InputPayloadTemplate: []byte("payload"),
 				Triggers: TriggerEvents{
 					CronSchedule: CronSchedule("* * * * *"),
-					JobSuccess:   []JobID{JobID(1)},
-					JobFailure:   []JobID{JobID(1)},
+					JobSuccess:   []JobID{JobID(3)},
+					JobFailure:   []JobID{JobID(2)},
 				},
 			},
 		},

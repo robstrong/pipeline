@@ -69,8 +69,8 @@ func (s *SQLiteRepo) GetJobs(in *GetJobsInput) ([]*Job, error) {
 		"processor_config",
 		"retryer_config",
 		"cron_schedule",
-		"group_concat(sucesses.job_id) AS success_job_ids",
-		"group_concat(failures.job_id) AS failure_job_ids",
+		"group_concat(sucesses.job_id_to_trigger) AS success_job_ids",
+		"group_concat(failures.job_id_to_trigger) AS failure_job_ids",
 	).
 		From("jobs").
 		LeftJoin("job_triggers sucesses ON jobs.id = sucesses.job_id AND sucesses.event_type = 'success'").
