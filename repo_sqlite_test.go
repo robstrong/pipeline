@@ -37,7 +37,11 @@ func TestSQLiteJob(t *testing.T) {
 				Name: "test1",
 				Processor: ProcessorConfig{
 					Type:   "processortype",
-					Config: []byte("pconfig"),
+					Config: map[string]string{"user": "jdoe"},
+				},
+				Retryer: RetryerConfig{
+					Type:   "retryertype",
+					Config: map[string]string{"retries": "2"},
 				},
 				InputPayloadTemplate: []byte("payload"),
 				CronSchedule:         NewCronSchedule("* * * * *"),
@@ -47,10 +51,48 @@ func TestSQLiteJob(t *testing.T) {
 				Name: "test1",
 				Processor: ProcessorConfig{
 					Type:   "processortype",
-					Config: []byte("pconfig"),
+					Config: map[string]string{"user": "jdoe"},
+				},
+				Retryer: RetryerConfig{
+					Type:   "retryertype",
+					Config: map[string]string{"retries": "2"},
 				},
 				InputPayloadTemplate: []byte("payload"),
-				CronSchedule:         CronSchedule("* * * * *"),
+				Triggers: TriggerEvents{
+					CronSchedule: CronSchedule("* * * * *"),
+				},
+			},
+		},
+		{
+			name: "nil cron",
+			input: &CreateJobInput{
+				Name: "test1",
+				Processor: ProcessorConfig{
+					Type:   "processortype",
+					Config: map[string]string{"user": "jdoe"},
+				},
+				Retryer: RetryerConfig{
+					Type:   "retryertype",
+					Config: map[string]string{"retries": "2"},
+				},
+				InputPayloadTemplate: []byte("payload"),
+				Triggers: TriggerEvents{
+					CronSchedule: nil,
+				},
+			},
+			expected: &Job{
+				ID:   2,
+				Name: "test1",
+				Processor: ProcessorConfig{
+					Type:   "processortype",
+					Config: map[string]string{"user": "jdoe"},
+				},
+				Retryer: RetryerConfig{
+					Type:   "retryertype",
+					Config: map[string]string{"retries": "2"},
+				},
+				InputPayloadTemplate: []byte("payload"),
+				CronSchedule:         CronSchedule(""),
 			},
 		},
 	}

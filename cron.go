@@ -48,7 +48,10 @@ func (c *CronScheduler) Start() {
 const ErrCronSchedulerJobAlreadyAdded = Err("job already added to cron")
 
 func (c *CronScheduler) AddJob(j *Job) error {
-	expr, err := j.CronSchedule.Expression()
+	if j.Triggers.CronSchedule == "" {
+		return nil
+	}
+	expr, err := j.Triggers.CronSchedule.Expression()
 	if err != nil {
 		return err
 	}

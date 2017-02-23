@@ -38,7 +38,7 @@ func (s *Service) startBackgroundWorker() {
 		case <-ticker.C:
 			//check for new runs to start
 			rs, err := s.repo.GetRuns(&GetRunsInput{
-				Status:          RunStatusPending.Ptr(),
+				Status:          RunStatusPtr(RunStatusPending),
 				StartTimeBefore: TimePtr(time.Now()),
 			})
 			if err != nil {

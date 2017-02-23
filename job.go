@@ -32,9 +32,15 @@ type Job struct {
 	Name                 string
 	Processor            ProcessorConfig
 	InputPayloadTemplate []byte
-	Retryer              Retryer
-	CronSchedule         CronSchedule
+	Retryer              RetryerConfig
+	Triggers             TriggerEvents
 	//DoNotOverlap         bool //if true, another run won't be started until the previous runs have completed
+}
+
+type TriggerEvents struct {
+	CronSchedule CronSchedule
+	JobSuccess   []JobID
+	JobFailure   []JobID
 }
 
 type CronSchedule string
@@ -93,7 +99,7 @@ const (
 	RunStatusComplete RunStatus = "complete"
 )
 
-func (r RunStatus) Ptr() *RunStatus {
+func RunStatusPtr(r RunStatus) *RunStatus {
 	return &r
 }
 

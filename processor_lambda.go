@@ -19,12 +19,12 @@ func (p *LambdaProcessor) Deserialize([]byte) error {
 	return nil
 }
 
-func (p *LambdaProcessor) Process(m json.RawMessage) (*RunResult, error) {
+func (p *LambdaProcessor) Process(inputJSON []byte) (*RunResult, error) {
 	out, err := p.LambdaClient.Invoke(
 		&lambda.InvokeInput{
 			FunctionName: &p.FunctionName,
 			LogType:      aws.String("RequestResponse"),
-			Payload:      []byte(m),
+			Payload:      []byte(inputJSON),
 		},
 	)
 	if err != nil {

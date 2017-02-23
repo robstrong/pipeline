@@ -8,8 +8,10 @@ import (
 func TestGetJobsForNextHour(t *testing.T) {
 	c := NewCronScheduler(time.Now(), time.Hour)
 	err := c.AddJob(&Job{
-		ID:           123,
-		CronSchedule: CronSchedule("* * * * *"),
+		ID: 123,
+		Triggers: TriggerEvents{
+			CronSchedule: CronSchedule("* * * * *"),
+		},
 	})
 	if err != nil {
 		t.Fatal(err)

@@ -10,15 +10,19 @@ import (
 
 type RunProcessor interface {
 	Serializer
-	Process(json.RawMessage) (*RunResult, error)
+	Process(inputJSON []byte) (*RunResult, error)
 }
 
+type RetryerConfig struct {
+	Type   string
+	Config map[string]string
+}
 type ProcessorConfig struct {
 	Type   string
-	Config []byte
+	Config map[string]string
 }
 
-type ProcessorMaker func(config []byte) (RunProcessor, error)
+type ProcessorMaker func(config map[string]string) (RunProcessor, error)
 type ProcessorFactory map[string]ProcessorMaker
 
 func (pf ProcessorFactory) Add(processorType string, f ProcessorMaker) {

@@ -44,6 +44,17 @@ func (s *SQLiteRepo) MigrateDB() error {
 		log TEXT,
 		FOREIGN KEY (job_id) REFERENCES jobs(id)
 	)`)
+	if err != nil {
+		return err
+	}
+	_, err = s.DB.Exec(`
+	CREATE TABLE IF NOT EXISTS job_triggers (
+		job_id INT NOT NULL,
+		job_to_trigger_id INT NOT NULL,
+		event_type TEXT NOT NULL,
+		FOREIGN KEY (job_id) REFERENCES jobs(id)
+		FOREIGN KEY (job_to_trigger_id) REFERENCES jobs(id)
+	)`)
 	return err
 }
 
@@ -89,8 +100,13 @@ func (s *SQLiteRepo) GetJobs(in *GetJobsInput) ([]*Job, error) {
 		if err := json.Unmarshal(processor, &procConfig); err != nil {
 			return nil, err
 		}
+		retryConfig := RetryerConfig{}
+		if err := json.Unmarshal(retryer, &retryConfig); err != nil {
+			return nil, err
+		}
 		job.Processor = procConfig
-		job.CronSchedule = CronSchedule(cronSchedule)
+		job.Retryer = retryConfig
+		job.Triggers.CronSchedule = CronSchedule(cronSchedule)
 		jobs = append(jobs, &job)
 	}
 	if rows.Err() != nil {
@@ -104,13 +120,35 @@ func (s *SQLiteRepo) CreateJob(j *CreateJobInput) (JobID, error) {
 	if err != nil {
 		return 0, err
 	}
-	cronSchedule := ""
-	if j.CronSchedule != nil {
-		cronSchedule = string(*j.CronSchedule)
+	retryer, err := json.Marshal(j.Retryer)
+	if err != nil {
+		return 0, err
 	}
+	cronSchedule := ""
+	var jobSuccess []JobID
+	var jobFailure []JobID
+	if j.Triggers != nil {
+		if j.Triggers.CronSchedule != nil {
+			cronSchedule = string(*j.Triggers.CronSchedule)
+		}
+		if len(j.Triggers.JobSuccess) > 0 {
+			jobSuccess = j.Triggers.JobSuccess
+		}
+		if len(j.Triggers.JobFailure) > 0 {
+			jobFailure = j.Triggers.JobFailure
+		}
+	}
+	//insert job
+	id, err := s.insertJob(j.Name, cronSchedule, processor, j.InputPayloadTemplate, retryer)
+	//insert job triggers
+	err := s.insertJobTriggers(jobSuccess, jobFailure)
+	return JobID(id), nil
+}
+
+func (s *SQLiteRepo) insertJob(name, cronSchedule string, processor, inputPayload, retryer []byte) (int64, error) {
 	insert := sq.Insert("jobs").
 		Columns("name", "processor_config", "input_payload_template", "retryer_config", "cron_schedule").
-		Values(j.Name, processor, j.InputPayloadTemplate, "", cronSchedule)
+		Values(name, processor, inputPayload, retryer, cronSchedule)
 	insertSQL, args, err := insert.ToSql()
 	if err != nil {
 		return 0, err
@@ -120,10 +158,11 @@ func (s *SQLiteRepo) CreateJob(j *CreateJobInput) (JobID, error) {
 		return 0, err
 	}
 	id, err := res.LastInsertId()
-	if err != nil {
-		return 0, err
-	}
-	return JobID(id), nil
+	return id, err
+}
+
+func (s *SQLiteRepo) insertJobTriggers(jobSuccess, jobFailure []JobID) error {
+
 }
 
 func (s *SQLiteRepo) UpdateJob(j *UpdateJobInput) error {
