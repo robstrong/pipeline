@@ -4,6 +4,8 @@ import (
 	"database/sql"
 	"encoding/json"
 	sq "github.com/Masterminds/squirrel"
+	"strconv"
+	"strings"
 )
 
 type SQLiteRepo struct {
@@ -50,10 +52,10 @@ func (s *SQLiteRepo) MigrateDB() error {
 	_, err = s.DB.Exec(`
 	CREATE TABLE IF NOT EXISTS job_triggers (
 		job_id INT NOT NULL,
-		job_to_trigger_id INT NOT NULL,
+		job_id_to_trigger INT NOT NULL,
 		event_type TEXT NOT NULL,
 		FOREIGN KEY (job_id) REFERENCES jobs(id)
-		FOREIGN KEY (job_to_trigger_id) REFERENCES jobs(id)
+		FOREIGN KEY (job_id_to_trigger) REFERENCES jobs(id)
 	)`)
 	return err
 }
@@ -67,8 +69,12 @@ func (s *SQLiteRepo) GetJobs(in *GetJobsInput) ([]*Job, error) {
 		"processor_config",
 		"retryer_config",
 		"cron_schedule",
+		"group_concat(sucesses.job_id) AS success_job_ids",
+		"group_concat(failures.job_id) AS failure_job_ids",
 	).
 		From("jobs").
+		LeftJoin("job_triggers sucesses ON jobs.id = sucesses.job_id AND sucesses.event_type = 'success'").
+		LeftJoin("job_triggers failures ON jobs.id = failures.job_id AND failures.event_type = 'failure'").
 		Where(sq.Eq{"jobs.id": MakeInts(in.JobIDs)})
 	query, args, err := sqQuery.ToSql()
 	if err != nil {
@@ -85,6 +91,8 @@ func (s *SQLiteRepo) GetJobs(in *GetJobsInput) ([]*Job, error) {
 		job := Job{}
 		var processor, retryer []byte
 		var cronSchedule string
+		successIds := StrPtr("")
+		failureIds := StrPtr("")
 		err := rows.Scan(
 			&job.ID,
 			&job.Name,
@@ -92,6 +100,8 @@ func (s *SQLiteRepo) GetJobs(in *GetJobsInput) ([]*Job, error) {
 			&processor,
 			&retryer,
 			&cronSchedule,
+			&successIds,
+			&failureIds,
 		)
 		if err != nil {
 			return nil, err
@@ -106,6 +116,14 @@ func (s *SQLiteRepo) GetJobs(in *GetJobsInput) ([]*Job, error) {
 		}
 		job.Processor = procConfig
 		job.Retryer = retryConfig
+		job.Triggers.JobSuccess, err = parseGroupedJobIDs(successIds)
+		if err != nil {
+			return nil, err
+		}
+		job.Triggers.JobFailure, err = parseGroupedJobIDs(failureIds)
+		if err != nil {
+			return nil, err
+		}
 		job.Triggers.CronSchedule = CronSchedule(cronSchedule)
 		jobs = append(jobs, &job)
 	}
@@ -113,6 +131,25 @@ func (s *SQLiteRepo) GetJobs(in *GetJobsInput) ([]*Job, error) {
 		return nil, err
 	}
 	return jobs, nil
+}
+
+func StrPtr(s string) *string {
+	return &s
+}
+func parseGroupedJobIDs(s *string) ([]JobID, error) {
+	var ids []JobID
+	if s == nil {
+		return ids, nil
+	}
+	parts := strings.Split(*s, "")
+	for _, jobId := range parts {
+		jobIdInt, err := strconv.ParseInt(jobId, 10, 64)
+		if err != nil {
+			return nil, err
+		}
+		ids = append(ids, JobID(jobIdInt))
+	}
+	return ids, nil
 }
 
 func (s *SQLiteRepo) CreateJob(j *CreateJobInput) (JobID, error) {
@@ -141,8 +178,30 @@ func (s *SQLiteRepo) CreateJob(j *CreateJobInput) (JobID, error) {
 	//insert job
 	id, err := s.insertJob(j.Name, cronSchedule, processor, j.InputPayloadTemplate, retryer)
 	//insert job triggers
-	err := s.insertJobTriggers(jobSuccess, jobFailure)
+	err = s.insertJobTriggers(id, jobSuccess, jobFailure)
+	if err != nil {
+		return 0, err
+	}
 	return JobID(id), nil
+}
+
+func (s *SQLiteRepo) insertJobTriggers(jobID int64, jobSuccess, jobFailure []JobID) error {
+	if len(jobSuccess) == 0 && len(jobFailure) == 0 {
+		return nil
+	}
+	insert := sq.Insert("job_triggers").Columns("job_id", "job_id_to_trigger", "event_type")
+	for _, j := range jobSuccess {
+		insert = insert.Values(jobID, uint64(j), "success")
+	}
+	for _, j := range jobFailure {
+		insert = insert.Values(jobID, uint64(j), "failure")
+	}
+	insertSQL, args, err := insert.ToSql()
+	if err != nil {
+		return err
+	}
+	_, err = s.DB.Exec(insertSQL, args...)
+	return err
 }
 
 func (s *SQLiteRepo) insertJob(name, cronSchedule string, processor, inputPayload, retryer []byte) (int64, error) {
@@ -159,10 +218,6 @@ func (s *SQLiteRepo) insertJob(name, cronSchedule string, processor, inputPayloa
 	}
 	id, err := res.LastInsertId()
 	return id, err
-}
-
-func (s *SQLiteRepo) insertJobTriggers(jobSuccess, jobFailure []JobID) error {
-
 }
 
 func (s *SQLiteRepo) UpdateJob(j *UpdateJobInput) error {

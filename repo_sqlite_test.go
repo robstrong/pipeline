@@ -25,7 +25,13 @@ func getRepo(t *testing.T) *SQLiteRepo {
 
 func TestSQLiteJob(t *testing.T) {
 	r := getRepo(t)
-	defer os.Remove(testDBPath)
+	defer func() {
+		err := os.Remove(testDBPath)
+		if err != nil {
+			t.Logf("err removing db: ", err)
+		}
+	}()
+
 	tests := []struct {
 		name     string
 		input    *CreateJobInput
@@ -44,7 +50,11 @@ func TestSQLiteJob(t *testing.T) {
 					Config: map[string]string{"retries": "2"},
 				},
 				InputPayloadTemplate: []byte("payload"),
-				CronSchedule:         NewCronSchedule("* * * * *"),
+				Triggers: &TriggerEventsInput{
+					CronSchedule: NewCronSchedule("* * * * *"),
+					JobSuccess:   []JobID{JobID(1)},
+					JobFailure:   []JobID{JobID(1)},
+				},
 			},
 			expected: &Job{
 				ID:   1,
@@ -60,11 +70,13 @@ func TestSQLiteJob(t *testing.T) {
 				InputPayloadTemplate: []byte("payload"),
 				Triggers: TriggerEvents{
 					CronSchedule: CronSchedule("* * * * *"),
+					JobSuccess:   []JobID{JobID(1)},
+					JobFailure:   []JobID{JobID(1)},
 				},
 			},
 		},
 		{
-			name: "nil cron",
+			name: "nil triggers",
 			input: &CreateJobInput{
 				Name: "test1",
 				Processor: ProcessorConfig{
@@ -76,7 +88,7 @@ func TestSQLiteJob(t *testing.T) {
 					Config: map[string]string{"retries": "2"},
 				},
 				InputPayloadTemplate: []byte("payload"),
-				Triggers: TriggerEvents{
+				Triggers: &TriggerEventsInput{
 					CronSchedule: nil,
 				},
 			},
@@ -92,7 +104,9 @@ func TestSQLiteJob(t *testing.T) {
 					Config: map[string]string{"retries": "2"},
 				},
 				InputPayloadTemplate: []byte("payload"),
-				CronSchedule:         CronSchedule(""),
+				Triggers: TriggerEvents{
+					CronSchedule: CronSchedule(""),
+				},
 			},
 		},
 	}
@@ -109,12 +123,12 @@ func TestSQLiteJob(t *testing.T) {
 		}
 
 		if len(jobs) != 1 {
-			t.Errorf("expected 1 job, got %d", len(jobs))
+			t.Errorf("%s: expected 1 job, got %d", test.name, len(jobs))
 			t.FailNow()
 		}
 		job := jobs[0]
 		if !reflect.DeepEqual(test.expected, job) {
-			t.Errorf("expected %+v, got %+v", test.expected, job)
+			t.Errorf("%s: expected %+v, got %+v", test.name, test.expected, job)
 		}
 	}
 }

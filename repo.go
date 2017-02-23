@@ -51,9 +51,10 @@ type CreateJobInput struct {
 	Processor            ProcessorConfig
 	InputPayloadTemplate []byte
 	Retryer              RetryerConfig
-	Triggers             *TriggerEventInput
+	Triggers             *TriggerEventsInput
 }
-type TriggerEventInput struct {
+
+type TriggerEventsInput struct {
 	CronSchedule *CronSchedule
 	JobSuccess   []JobID
 	JobFailure   []JobID
