@@ -6,11 +6,12 @@ import (
 )
 
 type Service struct {
-	incomingRuns chan *Run
-	finishedRuns chan *RunResult
-	repo         Repository
-	log          *log.Logger
-	cron         *CronScheduler
+	incomingRuns     chan *Run
+	finishedRuns     chan *RunResult
+	repo             Repository
+	log              *log.Logger
+	cron             *CronScheduler
+	processorFactory ProcessorFactory
 }
 
 func NewService(r Repository) *Service {
@@ -51,7 +52,12 @@ func (s *Service) startBackgroundWorker() {
 
 		case r := <-s.incomingRuns:
 			//process runs that should be run
-			res, err := r.Processor.Process(r.Input)
+			proc, err := s.processorFactory.Make(r.ProcessorConfig)
+			if err != nil {
+				s.log.Printf("err processing run: %s", err)
+				continue
+			}
+			res, err := proc.Process(r.Input)
 			if err != nil {
 				s.log.Printf("err processing run: %s", err)
 				continue

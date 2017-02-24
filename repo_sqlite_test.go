@@ -5,6 +5,7 @@ import (
 	"os"
 	"reflect"
 	"testing"
+	"time"
 
 	_ "github.com/mattn/go-sqlite3"
 )
@@ -72,11 +73,11 @@ func TestSQLiteCreateJob(t *testing.T) {
 			expected: &Job{
 				ID:   1,
 				Name: "test1",
-				Processor: ProcessorConfig{
+				ProcessorConfig: ProcessorConfig{
 					Type:   "processortype",
 					Config: map[string]string{"user": "jdoe"},
 				},
-				Retryer: RetryerConfig{
+				RetryerConfig: RetryerConfig{
 					Type:   "retryertype",
 					Config: map[string]string{"retries": "2"},
 				},
@@ -108,11 +109,11 @@ func TestSQLiteCreateJob(t *testing.T) {
 			expected: &Job{
 				ID:   2,
 				Name: "test1",
-				Processor: ProcessorConfig{
+				ProcessorConfig: ProcessorConfig{
 					Type:   "processortype",
 					Config: map[string]string{"user": "jdoe"},
 				},
-				Retryer: RetryerConfig{
+				RetryerConfig: RetryerConfig{
 					Type:   "retryertype",
 					Config: map[string]string{"retries": "2"},
 				},
@@ -193,12 +194,12 @@ func TestSQLiteUpdateJob(t *testing.T) {
 			},
 			expected: &Job{
 				Name: "test2",
-				Processor: ProcessorConfig{
+				ProcessorConfig: ProcessorConfig{
 					Type:   "ptype2",
 					Config: map[string]string{"p": "config2"},
 				},
 				InputPayloadTemplate: []byte("inputtempl2"),
-				Retryer: RetryerConfig{
+				RetryerConfig: RetryerConfig{
 					Type:   "rconfig2",
 					Config: map[string]string{"r": "config2"},
 				},
@@ -241,12 +242,12 @@ func TestSQLiteUpdateJob(t *testing.T) {
 			},
 			expected: &Job{
 				Name: "test1",
-				Processor: ProcessorConfig{
+				ProcessorConfig: ProcessorConfig{
 					Type:   "ptype",
 					Config: map[string]string{"p": "config"},
 				},
 				InputPayloadTemplate: []byte("inputtempl"),
-				Retryer: RetryerConfig{
+				RetryerConfig: RetryerConfig{
 					Type:   "rconfig",
 					Config: map[string]string{"r": "config"},
 				},
@@ -289,12 +290,12 @@ func TestSQLiteUpdateJob(t *testing.T) {
 			},
 			expected: &Job{
 				Name: "test1",
-				Processor: ProcessorConfig{
+				ProcessorConfig: ProcessorConfig{
 					Type:   "ptype",
 					Config: map[string]string{"p": "config"},
 				},
 				InputPayloadTemplate: []byte("inputtempl"),
-				Retryer: RetryerConfig{
+				RetryerConfig: RetryerConfig{
 					Type:   "rconfig",
 					Config: map[string]string{"r": "config"},
 				},
@@ -380,6 +381,71 @@ func TestParseGroupedJobIDs(t *testing.T) {
 		}
 		if !reflect.DeepEqual(got, tt.want) {
 			t.Errorf("%q. parseGroupedJobIDs() = %v, want %v", tt.name, got, tt.want)
+		}
+	}
+}
+
+func TestSQLiteCreateRun(t *testing.T) {
+	r := newTestRepo(t)
+	defer r.Close()
+
+	tests := []struct {
+		name     string
+		input    *CreateRunInput
+		expected *Run
+	}{
+		{
+			name: "set all fields",
+			input: &CreateRunInput{
+				JobID: JobID(1),
+				Processor: ProcessorConfig{
+					Type:   "ptype",
+					Config: map[string]string{"p": "config"},
+				},
+				Status:             RunStatusPending,
+				ScheduledStartTime: time.Date(2017, time.Month(2), 24, 9, 37, 2, 1, time.UTC),
+				Attempt:            1,
+				Input:              []byte("input"),
+			},
+			expected: &Run{
+				JobID: JobID(1),
+				ProcessorConfig: ProcessorConfig{
+					Type:   "ptype",
+					Config: map[string]string{"p": "config"},
+				},
+				Status:             RunStatusPending,
+				StatusDetail:       "",
+				ScheduledStartTime: time.Date(2017, time.Month(2), 24, 9, 37, 2, 1, time.UTC),
+				StartTime:          nil,
+				EndTime:            nil,
+				Attempt:            1,
+				Success:            false,
+				Input:              []byte("input"),
+				Output:             nil,
+				Log:                nil,
+			},
+		},
+	}
+
+	for _, test := range tests {
+		rID, err := r.CreateRun(test.input)
+		if err != nil {
+			t.Fatal(err)
+		}
+		test.expected.RunID = rID
+
+		runs, err := r.GetRuns(&GetRunsInput{RunID: RunIDPtr(RunID(rID))})
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if len(runs) != 1 {
+			t.Errorf("%s: expected 1 run, got %d", test.name, len(runs))
+			t.FailNow()
+		}
+		run := runs[0]
+		if !reflect.DeepEqual(test.expected, run) {
+			t.Errorf("%s: expected %+v, got %+v", test.name, test.expected, run)
 		}
 	}
 }

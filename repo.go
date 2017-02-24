@@ -1,9 +1,6 @@
 package pipeline
 
-import (
-	"encoding/json"
-	"time"
-)
+import "time"
 
 type Repository interface {
 	GetJobs(*GetJobsInput) ([]*Job, error)
@@ -21,6 +18,7 @@ type GetJobsInput struct {
 
 type GetRunsInput struct {
 	JobID           *JobID
+	RunID           *RunID
 	Status          *RunStatus
 	StartTimeBefore *time.Time //causes OrderBy to be set to 'startTime'
 	OrderBy         *string    //start_time or created_time
@@ -32,7 +30,7 @@ type CreateRunInput struct {
 	Status             RunStatus
 	ScheduledStartTime time.Time
 	Attempt            int
-	Input              *json.RawMessage
+	Input              []byte
 }
 
 type UpdateRunInput struct {

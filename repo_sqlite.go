@@ -41,10 +41,10 @@ func (s *SQLiteRepo) MigrateDB() error {
 		job_id INT NOT NULL,
 		processor_config TEXT NOT NULL,
         status TEXT NOT NULL,
-		status_detail TEXT NOT NULL,
+		status_detail TEXT,
 		scheduled_start_time DATETIME NOT NULL,
-		start_time DATETIME NOT NULL,
-		end_time DATETIME NOT NULL,
+		start_time DATETIME,
+		end_time DATETIME,
 		attempt INT NOT NULL,
 		success BOOL NOT NULL,
 		input TEXT NOT NULL,
@@ -120,8 +120,8 @@ func (s *SQLiteRepo) GetJobs(in *GetJobsInput) ([]*Job, error) {
 		if err := json.Unmarshal(retryer, &retryConfig); err != nil {
 			return nil, err
 		}
-		job.Processor = procConfig
-		job.Retryer = retryConfig
+		job.ProcessorConfig = procConfig
+		job.RetryerConfig = retryConfig
 		job.Triggers.JobSuccess, err = parseGroupedJobIDs(successIds)
 		if err != nil {
 			return nil, err
@@ -325,7 +325,7 @@ func (s *SQLiteRepo) GetRuns(in *GetRunsInput) ([]*Run, error) {
 		"input",
 		"output",
 		"log",
-		"processor",
+		"processor_config",
 	).
 		From("runs")
 	if in.JobID != nil {
@@ -348,7 +348,7 @@ func (s *SQLiteRepo) GetRuns(in *GetRunsInput) ([]*Run, error) {
 		return nil, err
 	}
 	//run query
-	rows, err := s.DB.Query(query, args)
+	rows, err := s.DB.Query(query, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -356,11 +356,12 @@ func (s *SQLiteRepo) GetRuns(in *GetRunsInput) ([]*Run, error) {
 	runs := []*Run{}
 	for rows.Next() {
 		run := Run{}
-		var processor string
+		var procConfig []byte
+		var status string
 		err := rows.Scan(
 			&run.RunID,
 			&run.JobID,
-			&run.Status,
+			&status,
 			&run.ScheduledStartTime,
 			&run.StartTime,
 			&run.EndTime,
@@ -369,12 +370,25 @@ func (s *SQLiteRepo) GetRuns(in *GetRunsInput) ([]*Run, error) {
 			&run.Input,
 			&run.Output,
 			&run.Log,
-			&processor,
+			&procConfig,
 		)
 		if err != nil {
 			return nil, err
 		}
-		//TODO: add logic for deserializing processor
+		//make runstatus
+		rs, err := RunStatusFromString(status)
+		if err != nil {
+			return nil, errors.Wrap(err, "get runs: error getting run status")
+		}
+		run.Status = rs
+		//unmarshal ProcessorConfig
+		pConfig := ProcessorConfig{}
+		err = json.Unmarshal(procConfig, &pConfig)
+		if err != nil {
+			return nil, errors.Wrap(err, "get runs: err unmarshalling processor config")
+		}
+		run.ProcessorConfig = pConfig
+
 		runs = append(runs, &run)
 	}
 	if rows.Err() != nil {
@@ -384,20 +398,20 @@ func (s *SQLiteRepo) GetRuns(in *GetRunsInput) ([]*Run, error) {
 
 }
 func (s *SQLiteRepo) CreateRun(in *CreateRunInput) (RunID, error) {
+	procConfig, err := json.Marshal(in.Processor)
+	if err != nil {
+		return 0, errors.Wrap(err, "create run: err marshalling processor config")
+	}
 	insertSQL, args, err := sq.Insert("runs").
-		Columns("name", "processor", "input_payload_template", "retryer", "cron_schedule").
-		Values("processor", in.Processor).
-		Values("status", in.Status).
-		Values("scheduled_start_time", in.ScheduledStartTime).
-		Values("attempt", in.Attempt).
-		Values("input", in.Input).
+		Columns("job_id", "processor_config", "status", "scheduled_start_time", "attempt", "input", "success").
+		Values(uint64(in.JobID), procConfig, in.Status, in.ScheduledStartTime, in.Attempt, in.Input, false).
 		ToSql()
 	if err != nil {
-		return 0, err
+		return 0, errors.Wrap(err, "create run: err creating sql")
 	}
-	res, err := s.DB.Exec(insertSQL, args)
+	res, err := s.DB.Exec(insertSQL, args...)
 	if err != nil {
-		return 0, err
+		return 0, errors.Wrap(err, "create run: err executing query")
 	}
 	id, err := res.LastInsertId()
 	if err != nil {
@@ -405,6 +419,7 @@ func (s *SQLiteRepo) CreateRun(in *CreateRunInput) (RunID, error) {
 	}
 	return RunID(id), nil
 }
+
 func (s *SQLiteRepo) UpdateRun(in *UpdateRunInput) error {
 	update := sq.Update("runs").Where(sq.Eq{"run_id": in.RunID})
 	if in.Status != nil {

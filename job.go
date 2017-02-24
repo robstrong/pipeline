@@ -3,6 +3,7 @@ package pipeline
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"html/template"
 	"strconv"
 	"time"
@@ -30,9 +31,9 @@ func MakeInts(js []JobID) []int64 {
 type Job struct {
 	ID                   JobID
 	Name                 string
-	Processor            ProcessorConfig
+	ProcessorConfig      ProcessorConfig
 	InputPayloadTemplate []byte
-	Retryer              RetryerConfig
+	RetryerConfig        RetryerConfig
 	Triggers             TriggerEvents
 	//DoNotOverlap         bool //if true, another run won't be started until the previous runs have completed
 }
@@ -93,6 +94,10 @@ func renderInput(tmpl []byte, data []byte) ([]byte, error) {
 
 type RunStatus string
 
+func (r RunStatus) String() string {
+	return string(r)
+}
+
 const (
 	RunStatusPending  RunStatus = "pending"
 	RunStatusRunning  RunStatus = "running"
@@ -103,7 +108,23 @@ func RunStatusPtr(r RunStatus) *RunStatus {
 	return &r
 }
 
+func RunStatusFromString(s string) (RunStatus, error) {
+	switch s {
+	case RunStatusPending.String():
+		return RunStatusPending, nil
+	case RunStatusComplete.String():
+		return RunStatusComplete, nil
+	case RunStatusRunning.String():
+		return RunStatusRunning, nil
+	}
+	return "", errors.New("invalid run status: " + s)
+}
+
 type RunID uint64
+
+func RunIDPtr(r RunID) *RunID {
+	return &r
+}
 
 func (r RunID) String() string {
 	return strconv.FormatInt(int64(r), 10)
@@ -116,17 +137,25 @@ func (r RunID) Bytes() []byte {
 type Run struct {
 	RunID              RunID
 	JobID              JobID
-	Processor          RunProcessor
+	ProcessorConfig    ProcessorConfig
 	Status             RunStatus
 	StatusDetail       string
 	ScheduledStartTime time.Time
-	StartTime          time.Time
-	EndTime            time.Time
+	StartTime          *time.Time
+	EndTime            *time.Time
 	Attempt            int
 	Success            bool
-	Input              json.RawMessage
-	Output             json.RawMessage
+	Input              []byte
+	Output             []byte
 	Log                []byte
+}
+
+func (r *Run) String() string {
+	js, err := json.MarshalIndent(r, "", "  ")
+	if err != nil {
+		return ""
+	}
+	return string(js)
 }
 
 type Retryer interface {
