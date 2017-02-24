@@ -129,12 +129,7 @@ type Run struct {
 	Log                []byte
 }
 
-type Serializer interface {
-	Serialize() ([]byte, error)
-	Deserialize([]byte) error
-}
 type Retryer interface {
-	Serializer
 	ShouldRetry(JobContext) bool
 }
 

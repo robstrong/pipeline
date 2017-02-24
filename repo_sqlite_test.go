@@ -10,7 +10,13 @@ import (
 
 const testDBPath = "./test.db"
 
-func getRepo(t *testing.T) *SQLiteRepo {
+type testRepo struct {
+	*SQLiteRepo
+	t      *testing.T
+	DBPath string
+}
+
+func NewTestRepo(t *testing.T) *testRepo {
 	db, err := sql.Open("sqlite3", testDBPath)
 	if err != nil {
 		t.Fatal(err)
@@ -20,17 +26,23 @@ func getRepo(t *testing.T) *SQLiteRepo {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return r
+	return &testRepo{
+		SQLiteRepo: r,
+		t:          t,
+		DBPath:     testDBPath,
+	}
 }
 
-func TestSQLiteJob(t *testing.T) {
-	r := getRepo(t)
-	defer func() {
-		err := os.Remove(testDBPath)
-		if err != nil {
-			t.Logf("err removing db: ", err)
-		}
-	}()
+func (r *testRepo) Close() {
+	err := os.Remove(r.DBPath)
+	if err != nil {
+		r.t.Logf("err removing db: ", err)
+	}
+}
+
+func TestSQLiteCreateJob(t *testing.T) {
+	r := NewTestRepo(t)
+	defer r.Close()
 
 	tests := []struct {
 		name     string
@@ -129,6 +141,53 @@ func TestSQLiteJob(t *testing.T) {
 		job := jobs[0]
 		if !reflect.DeepEqual(test.expected, job) {
 			t.Errorf("%s: expected %+v, got %+v", test.name, test.expected, job)
+		}
+	}
+}
+
+func TestSQLiteUpdateJob(t *testing.T) {
+	tests := []struct {
+		name      string
+		createJob *CreateJobInput
+		updateJob *UpdateJobInput
+		expected  *Job
+	}{
+		{
+			name: "test all fields",
+			createJob: &CreateJobInput{
+				Name: "test1",
+			},
+			updateJob: &UpdateJobInput{
+				Name: StrPtr("test2"),
+			},
+			expected: &Job{
+				Name: "test2",
+			},
+		},
+	}
+
+	r := NewTestRepo(t)
+	defer r.Close()
+	defer func() {
+	}()
+	for _, test := range tests {
+		id, err := r.CreateJob(test.createJob)
+		if err != nil {
+			t.Fatal(err)
+		}
+		upd := test.updateJob
+		upd.JobID = id
+		err = r.UpdateJob(upd)
+		if err != nil {
+			t.Fatal(err)
+		}
+		job, err := r.GetJobs(&GetJobsInput{JobIDs: []JobID{id}})
+		if err != nil {
+			t.Fatal(err)
+		}
+		test.expected.ID = upd.JobID
+		if !reflect.DeepEqual(test.expected, job[0]) {
+			t.Errorf("%s: expected %s\ngot: %s", test.name, test.expected, job[0])
 		}
 	}
 }

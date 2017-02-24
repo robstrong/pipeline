@@ -9,7 +9,6 @@ import (
 )
 
 type RunProcessor interface {
-	Serializer
 	Process(inputJSON []byte) (*RunResult, error)
 }
 

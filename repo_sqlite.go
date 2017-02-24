@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	sq "github.com/Masterminds/squirrel"
+	"github.com/pkg/errors"
 	"strconv"
 	"strings"
 )
@@ -136,6 +137,7 @@ func (s *SQLiteRepo) GetJobs(in *GetJobsInput) ([]*Job, error) {
 func StrPtr(s string) *string {
 	return &s
 }
+
 func parseGroupedJobIDs(s *string) ([]JobID, error) {
 	var ids []JobID
 	if s == nil {
@@ -221,36 +223,39 @@ func (s *SQLiteRepo) insertJob(name, cronSchedule string, processor, inputPayloa
 }
 
 func (s *SQLiteRepo) UpdateJob(j *UpdateJobInput) error {
-	update := sq.Update("jobs").Where(sq.Eq{"job_id": j.JobID})
+	update := sq.Update("jobs").Where(sq.Eq{"id": uint64(j.JobID)})
 	if j.Name != nil {
-		update.Set("name", *j.Name)
+		update = update.Set("name", *j.Name)
 	}
 	if j.InputPayloadTemplate != nil {
-		update.Set("input_payload_template", j.InputPayloadTemplate)
+		update = update.Set("input_payload_template", j.InputPayloadTemplate)
 	}
 	if j.Processor != nil {
 		d, err := json.Marshal(j.Processor)
 		if err != nil {
-			return err
+			return errors.Wrap(err, "update job: err marshalling processor")
 		}
-		update.Set("processor", d)
+		update = update.Set("processor", d)
 	}
 	if j.Retryer != nil {
-		d, err := j.Retryer.Serialize()
+		retryer, err := json.Marshal(j.Retryer)
 		if err != nil {
-			return err
+			return errors.Wrap(err, "update job: err marshalling retryer")
 		}
-		update.Set("retryer", d)
+		update = update.Set("retryer", retryer)
 	}
 	if j.CronSchedule != nil {
-		update.Set("cron_schedule", j.CronSchedule)
+		update = update.Set("cron_schedule", string(*j.CronSchedule))
 	}
 	updateSQL, args, err := update.ToSql()
 	if err != nil {
-		return err
+		return errors.Wrap(err, "update job: err generating sql")
 	}
-	_, err = s.DB.Exec(updateSQL, args)
-	return err
+	_, err = s.DB.Exec(updateSQL, args...)
+	if err != nil {
+		return errors.Wrap(err, "update job: err running query")
+	}
+	return nil
 }
 
 func (s *SQLiteRepo) GetRuns(in *GetRunsInput) ([]*Run, error) {

@@ -65,6 +65,6 @@ type UpdateJobInput struct {
 	Name                 *string
 	Processor            *ProcessorConfig
 	InputPayloadTemplate []byte
-	Retryer              Retryer
+	Retryer              *Retryer
 	CronSchedule         *CronSchedule
 }
