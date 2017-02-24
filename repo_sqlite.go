@@ -9,6 +9,11 @@ import (
 	"strings"
 )
 
+const (
+	JobTriggerEventTypeSuccess = "success"
+	JobTriggerEventTypeFailure = "failure"
+)
+
 type SQLiteRepo struct {
 	DB *sql.DB
 }
@@ -74,8 +79,8 @@ func (s *SQLiteRepo) GetJobs(in *GetJobsInput) ([]*Job, error) {
 		"group_concat(failures.job_id_to_trigger) AS failure_job_ids",
 	).
 		From("jobs").
-		LeftJoin("job_triggers sucesses ON jobs.id = sucesses.job_id AND sucesses.event_type = 'success'").
-		LeftJoin("job_triggers failures ON jobs.id = failures.job_id AND failures.event_type = 'failure'").
+		LeftJoin("job_triggers sucesses ON jobs.id = sucesses.job_id AND sucesses.event_type = ?", JobTriggerEventTypeSuccess).
+		LeftJoin("job_triggers failures ON jobs.id = failures.job_id AND failures.event_type = ?", JobTriggerEventTypeFailure).
 		Where(sq.Eq{"jobs.id": MakeInts(in.JobIDs)})
 	query, args, err := sqQuery.ToSql()
 	if err != nil {
@@ -92,8 +97,8 @@ func (s *SQLiteRepo) GetJobs(in *GetJobsInput) ([]*Job, error) {
 		job := Job{}
 		var processor, retryer []byte
 		var cronSchedule string
-		successIds := StrPtr("")
-		failureIds := StrPtr("")
+		successIds := StringPtr("")
+		failureIds := StringPtr("")
 		err := rows.Scan(
 			&job.ID,
 			&job.Name,
@@ -134,16 +139,19 @@ func (s *SQLiteRepo) GetJobs(in *GetJobsInput) ([]*Job, error) {
 	return jobs, nil
 }
 
-func StrPtr(s string) *string {
+func StringPtr(s string) *string {
 	return &s
 }
 
 func parseGroupedJobIDs(s *string) ([]JobID, error) {
-	var ids []JobID
+	ids := []JobID{}
 	if s == nil {
 		return ids, nil
 	}
-	parts := strings.Split(*s, "")
+	if *s == "" {
+		return ids, nil
+	}
+	parts := strings.Split(*s, ",")
 	for _, jobId := range parts {
 		jobIdInt, err := strconv.ParseInt(jobId, 10, 64)
 		if err != nil {
@@ -193,10 +201,10 @@ func (s *SQLiteRepo) insertJobTriggers(jobID int64, jobSuccess, jobFailure []Job
 	}
 	insert := sq.Insert("job_triggers").Columns("job_id", "job_id_to_trigger", "event_type")
 	for _, j := range jobSuccess {
-		insert = insert.Values(jobID, uint64(j), "success")
+		insert = insert.Values(jobID, uint64(j), JobTriggerEventTypeSuccess)
 	}
 	for _, j := range jobFailure {
-		insert = insert.Values(jobID, uint64(j), "failure")
+		insert = insert.Values(jobID, uint64(j), JobTriggerEventTypeFailure)
 	}
 	insertSQL, args, err := insert.ToSql()
 	if err != nil {
@@ -223,37 +231,82 @@ func (s *SQLiteRepo) insertJob(name, cronSchedule string, processor, inputPayloa
 }
 
 func (s *SQLiteRepo) UpdateJob(j *UpdateJobInput) error {
+	//update jobs table
 	update := sq.Update("jobs").Where(sq.Eq{"id": uint64(j.JobID)})
+	fieldChanged := false
 	if j.Name != nil {
 		update = update.Set("name", *j.Name)
+		fieldChanged = true
 	}
 	if j.InputPayloadTemplate != nil {
 		update = update.Set("input_payload_template", j.InputPayloadTemplate)
+		fieldChanged = true
 	}
 	if j.Processor != nil {
 		d, err := json.Marshal(j.Processor)
 		if err != nil {
 			return errors.Wrap(err, "update job: err marshalling processor")
 		}
-		update = update.Set("processor", d)
+		update = update.Set("processor_config", d)
+		fieldChanged = true
 	}
 	if j.Retryer != nil {
 		retryer, err := json.Marshal(j.Retryer)
 		if err != nil {
 			return errors.Wrap(err, "update job: err marshalling retryer")
 		}
-		update = update.Set("retryer", retryer)
+		update = update.Set("retryer_config", retryer)
+		fieldChanged = true
 	}
-	if j.CronSchedule != nil {
-		update = update.Set("cron_schedule", string(*j.CronSchedule))
+	if j.Triggers != nil && j.Triggers.CronSchedule != nil {
+		update = update.Set("cron_schedule", string(*j.Triggers.CronSchedule))
+		fieldChanged = true
 	}
-	updateSQL, args, err := update.ToSql()
+	if fieldChanged {
+		updateSQL, args, err := update.ToSql()
+		if err != nil {
+			return errors.Wrap(err, "update job: err generating sql")
+		}
+		_, err = s.DB.Exec(updateSQL, args...)
+		if err != nil {
+			return errors.Wrap(err, "update job: err running query")
+		}
+	}
+
+	//update job_triggers table
+	var successes, failures []JobID
+	if j.Triggers != nil && j.Triggers.JobSuccess != nil {
+		//delete previous success triggers
+		if err := s.deleteJobTriggers(j.JobID, JobTriggerEventTypeSuccess); err != nil {
+			return errors.Wrap(err, "update job: err deleting failure triggers")
+		}
+		successes = j.Triggers.JobSuccess
+	}
+	if j.Triggers != nil && j.Triggers.JobFailure != nil {
+		//delete previous failure triggers
+		if err := s.deleteJobTriggers(j.JobID, JobTriggerEventTypeFailure); err != nil {
+			return errors.Wrap(err, "update job: err deleting failure triggers")
+		}
+		failures = j.Triggers.JobFailure
+	}
+	err := s.insertJobTriggers(int64(j.JobID), successes, failures)
 	if err != nil {
-		return errors.Wrap(err, "update job: err generating sql")
+		return errors.Wrap(err, "update job: error inserting job triggers")
 	}
-	_, err = s.DB.Exec(updateSQL, args...)
+	return nil
+}
+
+func (s *SQLiteRepo) deleteJobTriggers(id JobID, eventType string) error {
+	sql, args, err := sq.Delete("job_triggers").
+		Where(sq.Eq{"job_id": uint64(id)}).
+		Where(sq.Eq{"event_type": eventType}).
+		ToSql()
 	if err != nil {
-		return errors.Wrap(err, "update job: err running query")
+		return errors.Wrap(err, "delete job triggers: err creating sql")
+	}
+	_, err = s.DB.Exec(sql, args...)
+	if err != nil {
+		return errors.Wrap(err, "delete job triggers: err executing query")
 	}
 	return nil
 }

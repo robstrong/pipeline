@@ -60,17 +60,6 @@ func NewDebugProcessor(w io.Writer) *DebugProcessor {
 	}
 }
 
-func (p *DebugProcessor) Process(m json.RawMessage) (*RunResult, error) {
+func (p *DebugProcessor) Process(m []byte) (*RunResult, error) {
 	return &RunResult{Success: true}, nil
-}
-
-func (p *DebugProcessor) Serialize() ([]byte, error) {
-	return json.Marshal(p)
-}
-
-func (p *DebugProcessor) Deserialize(d []byte) error {
-	if p == nil {
-		p = &DebugProcessor{}
-	}
-	return json.Unmarshal(d, p)
 }

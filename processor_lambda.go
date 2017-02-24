@@ -12,13 +12,6 @@ type LambdaProcessor struct {
 	LambdaClient *lambda.Lambda
 }
 
-func (p *LambdaProcessor) Serialize() ([]byte, error) {
-	return nil, nil
-}
-func (p *LambdaProcessor) Deserialize([]byte) error {
-	return nil
-}
-
 func (p *LambdaProcessor) Process(inputJSON []byte) (*RunResult, error) {
 	out, err := p.LambdaClient.Invoke(
 		&lambda.InvokeInput{

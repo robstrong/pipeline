@@ -2,10 +2,11 @@ package pipeline
 
 import (
 	"database/sql"
-	_ "github.com/mattn/go-sqlite3"
 	"os"
 	"reflect"
 	"testing"
+
+	_ "github.com/mattn/go-sqlite3"
 )
 
 const testDBPath = "./test.db"
@@ -16,7 +17,7 @@ type testRepo struct {
 	DBPath string
 }
 
-func NewTestRepo(t *testing.T) *testRepo {
+func newTestRepo(t *testing.T) *testRepo {
 	db, err := sql.Open("sqlite3", testDBPath)
 	if err != nil {
 		t.Fatal(err)
@@ -41,7 +42,7 @@ func (r *testRepo) Close() {
 }
 
 func TestSQLiteCreateJob(t *testing.T) {
-	r := NewTestRepo(t)
+	r := newTestRepo(t)
 	defer r.Close()
 
 	tests := []struct {
@@ -118,6 +119,8 @@ func TestSQLiteCreateJob(t *testing.T) {
 				InputPayloadTemplate: []byte("payload"),
 				Triggers: TriggerEvents{
 					CronSchedule: CronSchedule(""),
+					JobSuccess:   []JobID{},
+					JobFailure:   []JobID{},
 				},
 			},
 		},
@@ -156,20 +159,156 @@ func TestSQLiteUpdateJob(t *testing.T) {
 			name: "test all fields",
 			createJob: &CreateJobInput{
 				Name: "test1",
+				Processor: ProcessorConfig{
+					Type:   "ptype",
+					Config: map[string]string{"p": "config"},
+				},
+				InputPayloadTemplate: []byte("inputtempl"),
+				Retryer: RetryerConfig{
+					Type:   "rconfig",
+					Config: map[string]string{"r": "config"},
+				},
+				Triggers: &TriggerEventsInput{
+					CronSchedule: NewCronSchedule("* * *"),
+					JobSuccess:   []JobID{JobID(3)},
+					JobFailure:   []JobID{JobID(2)},
+				},
 			},
 			updateJob: &UpdateJobInput{
-				Name: StrPtr("test2"),
+				Name: StringPtr("test2"),
+				Processor: &ProcessorConfig{
+					Type:   "ptype2",
+					Config: map[string]string{"p": "config2"},
+				},
+				InputPayloadTemplate: []byte("inputtempl2"),
+				Retryer: &RetryerConfig{
+					Type:   "rconfig2",
+					Config: map[string]string{"r": "config2"},
+				},
+				Triggers: &TriggerEventsInput{
+					CronSchedule: NewCronSchedule("* * *2"),
+					JobSuccess:   []JobID{JobID(4)},
+					JobFailure:   []JobID{JobID(5)},
+				},
 			},
 			expected: &Job{
 				Name: "test2",
+				Processor: ProcessorConfig{
+					Type:   "ptype2",
+					Config: map[string]string{"p": "config2"},
+				},
+				InputPayloadTemplate: []byte("inputtempl2"),
+				Retryer: RetryerConfig{
+					Type:   "rconfig2",
+					Config: map[string]string{"r": "config2"},
+				},
+				Triggers: TriggerEvents{
+					CronSchedule: CronSchedule("* * *2"),
+					JobSuccess:   []JobID{JobID(4)},
+					JobFailure:   []JobID{JobID(5)},
+				},
+			},
+		},
+		{
+			name: "test values not changed",
+			createJob: &CreateJobInput{
+				Name: "test1",
+				Processor: ProcessorConfig{
+					Type:   "ptype",
+					Config: map[string]string{"p": "config"},
+				},
+				InputPayloadTemplate: []byte("inputtempl"),
+				Retryer: RetryerConfig{
+					Type:   "rconfig",
+					Config: map[string]string{"r": "config"},
+				},
+				Triggers: &TriggerEventsInput{
+					CronSchedule: NewCronSchedule("* * *"),
+					JobSuccess:   []JobID{JobID(3)},
+					JobFailure:   []JobID{JobID(2)},
+				},
+			},
+			updateJob: &UpdateJobInput{
+				Name:                 nil,
+				Processor:            nil,
+				InputPayloadTemplate: nil,
+				Retryer:              nil,
+				Triggers: &TriggerEventsInput{
+					CronSchedule: nil,
+					JobSuccess:   nil,
+					JobFailure:   nil,
+				},
+			},
+			expected: &Job{
+				Name: "test1",
+				Processor: ProcessorConfig{
+					Type:   "ptype",
+					Config: map[string]string{"p": "config"},
+				},
+				InputPayloadTemplate: []byte("inputtempl"),
+				Retryer: RetryerConfig{
+					Type:   "rconfig",
+					Config: map[string]string{"r": "config"},
+				},
+				Triggers: TriggerEvents{
+					CronSchedule: CronSchedule("* * *"),
+					JobSuccess:   []JobID{JobID(3)},
+					JobFailure:   []JobID{JobID(2)},
+				},
+			},
+		},
+		{
+			name: "unset triggers",
+			createJob: &CreateJobInput{
+				Name: "test1",
+				Processor: ProcessorConfig{
+					Type:   "ptype",
+					Config: map[string]string{"p": "config"},
+				},
+				InputPayloadTemplate: []byte("inputtempl"),
+				Retryer: RetryerConfig{
+					Type:   "rconfig",
+					Config: map[string]string{"r": "config"},
+				},
+				Triggers: &TriggerEventsInput{
+					CronSchedule: NewCronSchedule("* * *"),
+					JobSuccess:   []JobID{JobID(3)},
+					JobFailure:   []JobID{JobID(2)},
+				},
+			},
+			updateJob: &UpdateJobInput{
+				Name:                 nil,
+				Processor:            nil,
+				InputPayloadTemplate: nil,
+				Retryer:              nil,
+				Triggers: &TriggerEventsInput{
+					CronSchedule: NewCronSchedule(""),
+					JobSuccess:   []JobID{},
+					JobFailure:   []JobID{},
+				},
+			},
+			expected: &Job{
+				Name: "test1",
+				Processor: ProcessorConfig{
+					Type:   "ptype",
+					Config: map[string]string{"p": "config"},
+				},
+				InputPayloadTemplate: []byte("inputtempl"),
+				Retryer: RetryerConfig{
+					Type:   "rconfig",
+					Config: map[string]string{"r": "config"},
+				},
+				Triggers: TriggerEvents{
+					CronSchedule: CronSchedule(""),
+					JobSuccess:   []JobID{},
+					JobFailure:   []JobID{},
+				},
 			},
 		},
 	}
 
-	r := NewTestRepo(t)
+	r := newTestRepo(t)
 	defer r.Close()
-	defer func() {
-	}()
 	for _, test := range tests {
 		id, err := r.CreateJob(test.createJob)
 		if err != nil {
@@ -181,13 +320,66 @@ func TestSQLiteUpdateJob(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		job, err := r.GetJobs(&GetJobsInput{JobIDs: []JobID{id}})
+		jobs, err := r.GetJobs(&GetJobsInput{JobIDs: []JobID{id}})
 		if err != nil {
 			t.Fatal(err)
 		}
+		if len(jobs) != 1 {
+			t.Fatalf("expected 1 job, got %d", len(jobs))
+		}
 		test.expected.ID = upd.JobID
-		if !reflect.DeepEqual(test.expected, job[0]) {
-			t.Errorf("%s: expected %s\ngot: %s", test.name, test.expected, job[0])
+		if !reflect.DeepEqual(test.expected, jobs[0]) {
+			t.Errorf("%s: expected %s\ngot: %s", test.name, test.expected, jobs[0])
+		}
+	}
+}
+
+func TestParseGroupedJobIDs(t *testing.T) {
+	tests := []struct {
+		name    string
+		input   *string
+		want    []JobID
+		wantErr bool
+	}{
+		{
+			name:  "empty string",
+			input: StringPtr(""),
+			want:  []JobID{},
+		},
+		{
+			name:  "nil string",
+			input: nil,
+			want:  []JobID{},
+		},
+		{
+			name:  "single id",
+			input: StringPtr("1"),
+			want:  []JobID{1},
+		},
+		{
+			name:  "two ids",
+			input: StringPtr("1,2"),
+			want:  []JobID{1, 2},
+		},
+		{
+			name:    "invalid ids",
+			input:   StringPtr("1,f"),
+			wantErr: true,
+		},
+		{
+			name:    "missing ids",
+			input:   StringPtr("1,,2"),
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		got, err := parseGroupedJobIDs(tt.input)
+		if (err != nil) != tt.wantErr {
+			t.Errorf("%q. parseGroupedJobIDs() error = %v, wantErr %v", tt.name, err, tt.wantErr)
+			continue
+		}
+		if !reflect.DeepEqual(got, tt.want) {
+			t.Errorf("%q. parseGroupedJobIDs() = %v, want %v", tt.name, got, tt.want)
 		}
 	}
 }
