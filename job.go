@@ -13,6 +13,11 @@ import (
 
 type JobID uint64
 
+func JobIDPtr(i uint64) *JobID {
+	jid := JobID(i)
+	return &jid
+}
+
 func (j JobID) String() string {
 	return strconv.FormatInt(int64(j), 10)
 }
@@ -122,8 +127,9 @@ func RunStatusFromString(s string) (RunStatus, error) {
 
 type RunID uint64
 
-func RunIDPtr(r RunID) *RunID {
-	return &r
+func RunIDPtr(r uint64) *RunID {
+	rid := RunID(r)
+	return &rid
 }
 
 func (r RunID) String() string {

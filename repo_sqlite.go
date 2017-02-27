@@ -329,19 +329,22 @@ func (s *SQLiteRepo) GetRuns(in *GetRunsInput) ([]*Run, error) {
 	).
 		From("runs")
 	if in.JobID != nil {
-		runsQuery.Where(sq.Eq{"job_id": *in.JobID})
+		runsQuery = runsQuery.Where(sq.Eq{"job_id": *in.JobID})
+	}
+	if in.RunID != nil {
+		runsQuery = runsQuery.Where(sq.Eq{"id": *in.RunID})
 	}
 	if in.Status != nil {
-		runsQuery.Where(sq.Eq{"status": *in.Status})
+		runsQuery = runsQuery.Where(sq.Eq{"status": *in.Status})
 	}
 	if in.StartTimeBefore != nil {
-		runsQuery.Where(sq.Lt{"start_time": *in.StartTimeBefore})
-		runsQuery.OrderBy("start_time")
+		runsQuery = runsQuery.Where(sq.Lt{"start_time": *in.StartTimeBefore})
+		runsQuery = runsQuery.OrderBy("start_time")
 	}
 	if in.OrderBy != nil && in.StartTimeBefore == nil {
-		runsQuery.OrderBy(*in.OrderBy)
+		runsQuery = runsQuery.OrderBy(*in.OrderBy)
 	} else {
-		runsQuery.OrderBy("start_time")
+		runsQuery = runsQuery.OrderBy("start_time")
 	}
 	query, args, err := runsQuery.ToSql()
 	if err != nil {

@@ -19,6 +19,7 @@ type testRepo struct {
 }
 
 func newTestRepo(t *testing.T) *testRepo {
+	_ = os.Remove(testDBPath)
 	db, err := sql.Open("sqlite3", testDBPath)
 	if err != nil {
 		t.Fatal(err)
@@ -434,7 +435,7 @@ func TestSQLiteCreateRun(t *testing.T) {
 		}
 		test.expected.RunID = rID
 
-		runs, err := r.GetRuns(&GetRunsInput{RunID: RunIDPtr(RunID(rID))})
+		runs, err := r.GetRuns(&GetRunsInput{RunID: &rID})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -447,5 +448,140 @@ func TestSQLiteCreateRun(t *testing.T) {
 		if !reflect.DeepEqual(test.expected, run) {
 			t.Errorf("%s: expected %+v, got %+v", test.name, test.expected, run)
 		}
+	}
+}
+
+func TestSQLiteGetRuns(t *testing.T) {
+	tests := []struct {
+		name       string
+		createRuns []*CreateRunInput
+		query      *GetRunsInput
+		expected   []*Run
+	}{
+		{
+			name: "runs by job id",
+			createRuns: []*CreateRunInput{
+				&CreateRunInput{
+					JobID:  JobID(1),
+					Input:  []byte("r1"),
+					Status: RunStatusPending,
+				},
+				&CreateRunInput{
+					JobID:  JobID(1),
+					Input:  []byte("r2"),
+					Status: RunStatusPending,
+				},
+				&CreateRunInput{
+					JobID:  JobID(2),
+					Input:  []byte("r3"),
+					Status: RunStatusPending,
+				},
+			},
+			query: &GetRunsInput{
+				JobID: JobIDPtr(1),
+			},
+			expected: []*Run{
+				&Run{
+					RunID:  RunID(1),
+					JobID:  JobID(1),
+					Input:  []byte("r1"),
+					Status: RunStatusPending,
+				},
+				&Run{
+					RunID:  RunID(2),
+					JobID:  JobID(1),
+					Input:  []byte("r2"),
+					Status: RunStatusPending,
+				},
+			},
+		},
+		{
+			name: "run by run id",
+			createRuns: []*CreateRunInput{
+				&CreateRunInput{
+					JobID:  JobID(1),
+					Input:  []byte("r1"),
+					Status: RunStatusPending,
+				},
+				&CreateRunInput{
+					JobID:  JobID(1),
+					Input:  []byte("r2"),
+					Status: RunStatusPending,
+				},
+				&CreateRunInput{
+					JobID:  JobID(2),
+					Input:  []byte("r3"),
+					Status: RunStatusPending,
+				},
+			},
+			query: &GetRunsInput{
+				RunID: RunIDPtr(2),
+			},
+			expected: []*Run{
+				&Run{
+					RunID:  RunID(2),
+					JobID:  JobID(1),
+					Input:  []byte("r2"),
+					Status: RunStatusPending,
+				},
+			},
+		},
+		{
+			name: "by status",
+			createRuns: []*CreateRunInput{
+				&CreateRunInput{
+					JobID:  JobID(1),
+					Input:  []byte("r1"),
+					Status: RunStatusPending,
+				},
+				&CreateRunInput{
+					JobID:  JobID(1),
+					Input:  []byte("r2"),
+					Status: RunStatusComplete,
+				},
+				&CreateRunInput{
+					JobID:  JobID(2),
+					Input:  []byte("r3"),
+					Status: RunStatusRunning,
+				},
+			},
+			query: &GetRunsInput{
+				Status: RunStatusPtr(RunStatusComplete),
+			},
+			expected: []*Run{
+				&Run{
+					RunID:  RunID(2),
+					JobID:  JobID(1),
+					Input:  []byte("r2"),
+					Status: RunStatusComplete,
+				},
+			},
+		},
+	}
+	for _, test := range tests {
+		r := newTestRepo(t)
+
+		for _, c := range test.createRuns {
+			_, err := r.CreateRun(c)
+			if err != nil {
+				t.Fatal(err)
+			}
+		}
+
+		runs, err := r.GetRuns(test.query)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if len(runs) != len(test.expected) {
+			t.Errorf("%s: expected %d run, got %d", test.name, len(test.expected), len(runs))
+			t.FailNow()
+		}
+		for i, run := range runs {
+			if !reflect.DeepEqual(test.expected[i], run) {
+				t.Errorf("%s: expected %+v, got %+v", test.name, test.expected[i], run)
+			}
+		}
+		r.Close()
 	}
 }
