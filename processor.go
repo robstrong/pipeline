@@ -3,6 +3,7 @@ package pipeline
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"log"
 	"os"
@@ -16,9 +17,36 @@ type RetryerConfig struct {
 	Type   string
 	Config map[string]string
 }
+
+func (r *RetryerConfig) Scan(src interface{}) error {
+	srcBytes, ok := src.([]byte)
+	if !ok {
+		return fmt.Errorf("retryer config: unexpected src type: %T", src)
+	}
+	retryerConfig := RetryerConfig{}
+	if err := json.Unmarshal(srcBytes, &retryerConfig); err != nil {
+		return err
+	}
+	*r = retryerConfig
+	return nil
+}
+
 type ProcessorConfig struct {
 	Type   string
 	Config map[string]string
+}
+
+func (p *ProcessorConfig) Scan(src interface{}) error {
+	srcBytes, ok := src.([]byte)
+	if !ok {
+		return fmt.Errorf("processor config: unexpected src type: %T", src)
+	}
+	procConfig := ProcessorConfig{}
+	if err := json.Unmarshal(srcBytes, &procConfig); err != nil {
+		return err
+	}
+	*p = procConfig
+	return nil
 }
 
 type ProcessorMaker func(config map[string]string) (RunProcessor, error)

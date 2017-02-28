@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"html/template"
 	"strconv"
 	"time"
@@ -12,6 +13,25 @@ import (
 )
 
 type JobID uint64
+type JobIDs []JobID
+
+func (js *JobIDs) Scan(src interface{}) error {
+	if src == nil {
+		*js = JobIDs{}
+		return nil
+	}
+	srcBytes, ok := src.([]byte)
+	if !ok {
+		return fmt.Errorf("job ids: unexpected type: %T", src)
+	}
+	srcString := string(srcBytes)
+	jobs, err := parseGroupedJobIDs(&srcString)
+	if err != nil {
+		return err
+	}
+	*js = jobs
+	return nil
+}
 
 func JobIDPtr(i uint64) *JobID {
 	jid := JobID(i)
@@ -45,11 +65,20 @@ type Job struct {
 
 type TriggerEvents struct {
 	CronSchedule CronSchedule
-	JobSuccess   []JobID
-	JobFailure   []JobID
+	JobSuccess   JobIDs
+	JobFailure   JobIDs
 }
 
 type CronSchedule string
+
+func (c *CronSchedule) Scan(src interface{}) error {
+	srcBytes, ok := src.([]byte)
+	if !ok {
+		return fmt.Errorf("cron schedule: unexpected type: %T", src)
+	}
+	*c = CronSchedule(string(srcBytes))
+	return nil
+}
 
 func NewCronSchedule(s string) *CronSchedule {
 	cs := CronSchedule(s)

@@ -28,9 +28,15 @@ type CreateRunInput struct {
 	JobID              JobID
 	Processor          ProcessorConfig
 	Status             RunStatus
+	StatusDetail       *string
 	ScheduledStartTime time.Time
 	Attempt            int
+	StartTime          *time.Time
+	EndTime            *time.Time
+	Success            *bool
 	Input              []byte
+	Output             []byte
+	Log                []byte
 }
 
 type UpdateRunInput struct {
@@ -54,8 +60,8 @@ type CreateJobInput struct {
 
 type TriggerEventsInput struct {
 	CronSchedule *CronSchedule
-	JobSuccess   []JobID
-	JobFailure   []JobID
+	JobSuccess   JobIDs
+	JobFailure   JobIDs
 }
 
 type UpdateJobInput struct {

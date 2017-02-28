@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	sq "github.com/Masterminds/squirrel"
 	"github.com/pkg/errors"
+	"log"
 	"strconv"
 	"strings"
 )
@@ -91,46 +92,27 @@ func (s *SQLiteRepo) GetJobs(in *GetJobsInput) ([]*Job, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() {
+		if err := rows.Close(); err != nil {
+			log.Printf("get jobs: err closing rows: %s", err)
+		}
+	}()
 	jobs := []*Job{}
 	for rows.Next() {
 		job := Job{}
-		var processor, retryer []byte
-		var cronSchedule string
-		successIds := StringPtr("")
-		failureIds := StringPtr("")
 		err := rows.Scan(
 			&job.ID,
 			&job.Name,
 			&job.InputPayloadTemplate,
-			&processor,
-			&retryer,
-			&cronSchedule,
-			&successIds,
-			&failureIds,
+			&job.ProcessorConfig,
+			&job.RetryerConfig,
+			&job.Triggers.CronSchedule,
+			&job.Triggers.JobSuccess,
+			&job.Triggers.JobFailure,
 		)
 		if err != nil {
 			return nil, err
 		}
-		procConfig := ProcessorConfig{}
-		if err := json.Unmarshal(processor, &procConfig); err != nil {
-			return nil, err
-		}
-		retryConfig := RetryerConfig{}
-		if err := json.Unmarshal(retryer, &retryConfig); err != nil {
-			return nil, err
-		}
-		job.ProcessorConfig = procConfig
-		job.RetryerConfig = retryConfig
-		job.Triggers.JobSuccess, err = parseGroupedJobIDs(successIds)
-		if err != nil {
-			return nil, err
-		}
-		job.Triggers.JobFailure, err = parseGroupedJobIDs(failureIds)
-		if err != nil {
-			return nil, err
-		}
-		job.Triggers.CronSchedule = CronSchedule(cronSchedule)
 		jobs = append(jobs, &job)
 	}
 	if rows.Err() != nil {
@@ -143,8 +125,8 @@ func StringPtr(s string) *string {
 	return &s
 }
 
-func parseGroupedJobIDs(s *string) ([]JobID, error) {
-	ids := []JobID{}
+func parseGroupedJobIDs(s *string) (JobIDs, error) {
+	ids := JobIDs{}
 	if s == nil {
 		return ids, nil
 	}
@@ -355,7 +337,11 @@ func (s *SQLiteRepo) GetRuns(in *GetRunsInput) ([]*Run, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() {
+		if err := rows.Close(); err != nil {
+			log.Printf("get runs: err closing rows: %s", err)
+		}
+	}()
 	runs := []*Run{}
 	for rows.Next() {
 		run := Run{}
@@ -406,7 +392,15 @@ func (s *SQLiteRepo) CreateRun(in *CreateRunInput) (RunID, error) {
 		return 0, errors.Wrap(err, "create run: err marshalling processor config")
 	}
 	insertSQL, args, err := sq.Insert("runs").
-		Columns("job_id", "processor_config", "status", "scheduled_start_time", "attempt", "input", "success").
+		Columns(
+			"job_id",
+			"processor_config",
+			"status",
+			"scheduled_start_time",
+			"attempt",
+			"input",
+			"success",
+		).
 		Values(uint64(in.JobID), procConfig, in.Status, in.ScheduledStartTime, in.Attempt, in.Input, false).
 		ToSql()
 	if err != nil {

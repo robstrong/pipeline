@@ -67,7 +67,7 @@ func TestSQLiteCreateJob(t *testing.T) {
 				InputPayloadTemplate: []byte("payload"),
 				Triggers: &TriggerEventsInput{
 					CronSchedule: NewCronSchedule("* * * * *"),
-					JobSuccess:   []JobID{JobID(3)},
+					JobSuccess:   JobIDs{JobID(3)},
 					JobFailure:   []JobID{JobID(2)},
 				},
 			},
@@ -85,7 +85,7 @@ func TestSQLiteCreateJob(t *testing.T) {
 				InputPayloadTemplate: []byte("payload"),
 				Triggers: TriggerEvents{
 					CronSchedule: CronSchedule("* * * * *"),
-					JobSuccess:   []JobID{JobID(3)},
+					JobSuccess:   JobIDs{JobID(3)},
 					JobFailure:   []JobID{JobID(2)},
 				},
 			},
@@ -121,7 +121,7 @@ func TestSQLiteCreateJob(t *testing.T) {
 				InputPayloadTemplate: []byte("payload"),
 				Triggers: TriggerEvents{
 					CronSchedule: CronSchedule(""),
-					JobSuccess:   []JobID{},
+					JobSuccess:   JobIDs{},
 					JobFailure:   []JobID{},
 				},
 			},
@@ -172,7 +172,7 @@ func TestSQLiteUpdateJob(t *testing.T) {
 				},
 				Triggers: &TriggerEventsInput{
 					CronSchedule: NewCronSchedule("* * *"),
-					JobSuccess:   []JobID{JobID(3)},
+					JobSuccess:   JobIDs{JobID(3)},
 					JobFailure:   []JobID{JobID(2)},
 				},
 			},
@@ -189,7 +189,7 @@ func TestSQLiteUpdateJob(t *testing.T) {
 				},
 				Triggers: &TriggerEventsInput{
 					CronSchedule: NewCronSchedule("* * *2"),
-					JobSuccess:   []JobID{JobID(4)},
+					JobSuccess:   JobIDs{JobID(4)},
 					JobFailure:   []JobID{JobID(5)},
 				},
 			},
@@ -206,7 +206,7 @@ func TestSQLiteUpdateJob(t *testing.T) {
 				},
 				Triggers: TriggerEvents{
 					CronSchedule: CronSchedule("* * *2"),
-					JobSuccess:   []JobID{JobID(4)},
+					JobSuccess:   JobIDs{JobID(4)},
 					JobFailure:   []JobID{JobID(5)},
 				},
 			},
@@ -226,7 +226,7 @@ func TestSQLiteUpdateJob(t *testing.T) {
 				},
 				Triggers: &TriggerEventsInput{
 					CronSchedule: NewCronSchedule("* * *"),
-					JobSuccess:   []JobID{JobID(3)},
+					JobSuccess:   JobIDs{JobID(3)},
 					JobFailure:   []JobID{JobID(2)},
 				},
 			},
@@ -254,7 +254,7 @@ func TestSQLiteUpdateJob(t *testing.T) {
 				},
 				Triggers: TriggerEvents{
 					CronSchedule: CronSchedule("* * *"),
-					JobSuccess:   []JobID{JobID(3)},
+					JobSuccess:   JobIDs{JobID(3)},
 					JobFailure:   []JobID{JobID(2)},
 				},
 			},
@@ -274,7 +274,7 @@ func TestSQLiteUpdateJob(t *testing.T) {
 				},
 				Triggers: &TriggerEventsInput{
 					CronSchedule: NewCronSchedule("* * *"),
-					JobSuccess:   []JobID{JobID(3)},
+					JobSuccess:   JobIDs{JobID(3)},
 					JobFailure:   []JobID{JobID(2)},
 				},
 			},
@@ -285,7 +285,7 @@ func TestSQLiteUpdateJob(t *testing.T) {
 				Retryer:              nil,
 				Triggers: &TriggerEventsInput{
 					CronSchedule: NewCronSchedule(""),
-					JobSuccess:   []JobID{},
+					JobSuccess:   JobIDs{},
 					JobFailure:   []JobID{},
 				},
 			},
@@ -302,7 +302,7 @@ func TestSQLiteUpdateJob(t *testing.T) {
 				},
 				Triggers: TriggerEvents{
 					CronSchedule: CronSchedule(""),
-					JobSuccess:   []JobID{},
+					JobSuccess:   JobIDs{},
 					JobFailure:   []JobID{},
 				},
 			},
@@ -340,28 +340,28 @@ func TestParseGroupedJobIDs(t *testing.T) {
 	tests := []struct {
 		name    string
 		input   *string
-		want    []JobID
+		want    JobIDs
 		wantErr bool
 	}{
 		{
 			name:  "empty string",
 			input: StringPtr(""),
-			want:  []JobID{},
+			want:  JobIDs{},
 		},
 		{
 			name:  "nil string",
 			input: nil,
-			want:  []JobID{},
+			want:  JobIDs{},
 		},
 		{
 			name:  "single id",
 			input: StringPtr("1"),
-			want:  []JobID{1},
+			want:  JobIDs{1},
 		},
 		{
 			name:  "two ids",
 			input: StringPtr("1,2"),
-			want:  []JobID{1, 2},
+			want:  JobIDs{1, 2},
 		},
 		{
 			name:    "invalid ids",
