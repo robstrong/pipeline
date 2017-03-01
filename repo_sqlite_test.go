@@ -68,7 +68,7 @@ func TestSQLiteCreateJob(t *testing.T) {
 				Triggers: &TriggerEventsInput{
 					CronSchedule: NewCronSchedule("* * * * *"),
 					JobSuccess:   JobIDs{JobID(3)},
-					JobFailure:   []JobID{JobID(2)},
+					JobFailure:   JobIDs{JobID(2)},
 				},
 			},
 			expected: &Job{
@@ -86,7 +86,7 @@ func TestSQLiteCreateJob(t *testing.T) {
 				Triggers: TriggerEvents{
 					CronSchedule: CronSchedule("* * * * *"),
 					JobSuccess:   JobIDs{JobID(3)},
-					JobFailure:   []JobID{JobID(2)},
+					JobFailure:   JobIDs{JobID(2)},
 				},
 			},
 		},
@@ -122,7 +122,7 @@ func TestSQLiteCreateJob(t *testing.T) {
 				Triggers: TriggerEvents{
 					CronSchedule: CronSchedule(""),
 					JobSuccess:   JobIDs{},
-					JobFailure:   []JobID{},
+					JobFailure:   JobIDs{},
 				},
 			},
 		},
@@ -134,7 +134,7 @@ func TestSQLiteCreateJob(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		jobs, err := r.GetJobs(&GetJobsInput{JobIDs: []JobID{jID}})
+		jobs, err := r.GetJobs(&GetJobsInput{JobIDs: JobIDs{jID}})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -173,7 +173,7 @@ func TestSQLiteUpdateJob(t *testing.T) {
 				Triggers: &TriggerEventsInput{
 					CronSchedule: NewCronSchedule("* * *"),
 					JobSuccess:   JobIDs{JobID(3)},
-					JobFailure:   []JobID{JobID(2)},
+					JobFailure:   JobIDs{JobID(2)},
 				},
 			},
 			updateJob: &UpdateJobInput{
@@ -190,7 +190,7 @@ func TestSQLiteUpdateJob(t *testing.T) {
 				Triggers: &TriggerEventsInput{
 					CronSchedule: NewCronSchedule("* * *2"),
 					JobSuccess:   JobIDs{JobID(4)},
-					JobFailure:   []JobID{JobID(5)},
+					JobFailure:   JobIDs{JobID(5)},
 				},
 			},
 			expected: &Job{
@@ -207,7 +207,7 @@ func TestSQLiteUpdateJob(t *testing.T) {
 				Triggers: TriggerEvents{
 					CronSchedule: CronSchedule("* * *2"),
 					JobSuccess:   JobIDs{JobID(4)},
-					JobFailure:   []JobID{JobID(5)},
+					JobFailure:   JobIDs{JobID(5)},
 				},
 			},
 		},
@@ -227,7 +227,7 @@ func TestSQLiteUpdateJob(t *testing.T) {
 				Triggers: &TriggerEventsInput{
 					CronSchedule: NewCronSchedule("* * *"),
 					JobSuccess:   JobIDs{JobID(3)},
-					JobFailure:   []JobID{JobID(2)},
+					JobFailure:   JobIDs{JobID(2)},
 				},
 			},
 			updateJob: &UpdateJobInput{
@@ -255,7 +255,7 @@ func TestSQLiteUpdateJob(t *testing.T) {
 				Triggers: TriggerEvents{
 					CronSchedule: CronSchedule("* * *"),
 					JobSuccess:   JobIDs{JobID(3)},
-					JobFailure:   []JobID{JobID(2)},
+					JobFailure:   JobIDs{JobID(2)},
 				},
 			},
 		},
@@ -275,7 +275,7 @@ func TestSQLiteUpdateJob(t *testing.T) {
 				Triggers: &TriggerEventsInput{
 					CronSchedule: NewCronSchedule("* * *"),
 					JobSuccess:   JobIDs{JobID(3)},
-					JobFailure:   []JobID{JobID(2)},
+					JobFailure:   JobIDs{JobID(2)},
 				},
 			},
 			updateJob: &UpdateJobInput{
@@ -286,7 +286,7 @@ func TestSQLiteUpdateJob(t *testing.T) {
 				Triggers: &TriggerEventsInput{
 					CronSchedule: NewCronSchedule(""),
 					JobSuccess:   JobIDs{},
-					JobFailure:   []JobID{},
+					JobFailure:   JobIDs{},
 				},
 			},
 			expected: &Job{
@@ -303,7 +303,7 @@ func TestSQLiteUpdateJob(t *testing.T) {
 				Triggers: TriggerEvents{
 					CronSchedule: CronSchedule(""),
 					JobSuccess:   JobIDs{},
-					JobFailure:   []JobID{},
+					JobFailure:   JobIDs{},
 				},
 			},
 		},
@@ -322,7 +322,7 @@ func TestSQLiteUpdateJob(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		jobs, err := r.GetJobs(&GetJobsInput{JobIDs: []JobID{id}})
+		jobs, err := r.GetJobs(&GetJobsInput{JobIDs: JobIDs{id}})
 		if err != nil {
 			t.Fatal(err)
 		}

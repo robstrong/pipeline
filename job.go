@@ -45,7 +45,7 @@ func (j JobID) Bytes() []byte {
 	return []byte(strconv.FormatUint(uint64(j), 10))
 }
 
-func MakeInts(js []JobID) []int64 {
+func MakeInts(js JobIDs) []int64 {
 	is := make([]int64, len(js))
 	for i, j := range js {
 		is[i] = int64(j)
@@ -127,6 +127,19 @@ func renderInput(tmpl []byte, data []byte) ([]byte, error) {
 }
 
 type RunStatus string
+
+func (r *RunStatus) Scan(src interface{}) error {
+	srcBytes, ok := src.([]byte)
+	if !ok {
+		return fmt.Errorf("job ids: unexpected type: %T", src)
+	}
+	rs, err := RunStatusFromString(string(srcBytes))
+	if err != nil {
+		return err
+	}
+	*r = rs
+	return nil
+}
 
 func (r RunStatus) String() string {
 	return string(r)

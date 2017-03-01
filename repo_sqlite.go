@@ -154,8 +154,8 @@ func (s *SQLiteRepo) CreateJob(j *CreateJobInput) (JobID, error) {
 		return 0, err
 	}
 	cronSchedule := ""
-	var jobSuccess []JobID
-	var jobFailure []JobID
+	var jobSuccess JobIDs
+	var jobFailure JobIDs
 	if j.Triggers != nil {
 		if j.Triggers.CronSchedule != nil {
 			cronSchedule = string(*j.Triggers.CronSchedule)
@@ -177,7 +177,7 @@ func (s *SQLiteRepo) CreateJob(j *CreateJobInput) (JobID, error) {
 	return JobID(id), nil
 }
 
-func (s *SQLiteRepo) insertJobTriggers(jobID int64, jobSuccess, jobFailure []JobID) error {
+func (s *SQLiteRepo) insertJobTriggers(jobID int64, jobSuccess, jobFailure JobIDs) error {
 	if len(jobSuccess) == 0 && len(jobFailure) == 0 {
 		return nil
 	}
@@ -345,12 +345,10 @@ func (s *SQLiteRepo) GetRuns(in *GetRunsInput) ([]*Run, error) {
 	runs := []*Run{}
 	for rows.Next() {
 		run := Run{}
-		var procConfig []byte
-		var status string
 		err := rows.Scan(
 			&run.RunID,
 			&run.JobID,
-			&status,
+			&run.Status,
 			&run.ScheduledStartTime,
 			&run.StartTime,
 			&run.EndTime,
@@ -359,24 +357,11 @@ func (s *SQLiteRepo) GetRuns(in *GetRunsInput) ([]*Run, error) {
 			&run.Input,
 			&run.Output,
 			&run.Log,
-			&procConfig,
+			&run.ProcessorConfig,
 		)
 		if err != nil {
 			return nil, err
 		}
-		//make runstatus
-		rs, err := RunStatusFromString(status)
-		if err != nil {
-			return nil, errors.Wrap(err, "get runs: error getting run status")
-		}
-		run.Status = rs
-		//unmarshal ProcessorConfig
-		pConfig := ProcessorConfig{}
-		err = json.Unmarshal(procConfig, &pConfig)
-		if err != nil {
-			return nil, errors.Wrap(err, "get runs: err unmarshalling processor config")
-		}
-		run.ProcessorConfig = pConfig
 
 		runs = append(runs, &run)
 	}
