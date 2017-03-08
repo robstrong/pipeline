@@ -45,15 +45,19 @@ func (c *CronScheduler) Start() {
 	}()
 }
 
-const ErrCronSchedulerJobAlreadyAdded = Err("job already added to cron")
+const (
+	ErrCronSchedulerJobAlreadyAdded     = Err("job already added to cron")
+	ErrCronSchedulerInvalidCronSchedule = Err("invalid cron schedule")
+	ErrCronSchedulerInvalidJob          = Err("invalid job")
+)
 
 func (c *CronScheduler) AddJob(j *Job) error {
-	if j.Triggers.CronSchedule == "" {
-		return nil
+	if j == nil {
+		return ErrCronSchedulerInvalidJob
 	}
 	expr, err := j.Triggers.CronSchedule.Expression()
 	if err != nil {
-		return err
+		return ErrCronSchedulerInvalidCronSchedule
 	}
 	if _, ok := c.jobs[j.ID]; ok {
 		return ErrCronSchedulerJobAlreadyAdded
@@ -82,9 +86,11 @@ func (c *CronScheduler) addNextJobsToChan() {
 		//get all the runs for this job in the time range
 		for !t.IsZero() && (t.Before(endTime) || t.Equal(endTime)) {
 			r, err := j.MakeRun(JobContext{
+				//TODO: set proper attempt
 				Attempt:            0,
 				ScheduledStartTime: t,
-				PreviousOutput:     []byte("{}"),
+				//TODO: fetch previous output
+				PreviousOutput: []byte("{}"),
 			})
 			if err != nil {
 				c.writeErr(err)

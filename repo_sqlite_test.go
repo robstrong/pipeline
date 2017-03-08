@@ -399,14 +399,20 @@ func TestSQLiteCreateRun(t *testing.T) {
 			name: "set all fields",
 			input: &CreateRunInput{
 				JobID: JobID(1),
-				Processor: ProcessorConfig{
+				ProcessorConfig: ProcessorConfig{
 					Type:   "ptype",
 					Config: map[string]string{"p": "config"},
 				},
-				Status:             RunStatusPending,
+				Status:             RunStatusPtr(RunStatusPending),
+				StatusDetail:       StringPtr("status detail"),
 				ScheduledStartTime: time.Date(2017, time.Month(2), 24, 9, 37, 2, 1, time.UTC),
-				Attempt:            1,
+				StartTime:          TimePtr(time.Date(2017, time.Month(3), 24, 9, 37, 2, 1, time.UTC)),
+				EndTime:            TimePtr(time.Date(2017, time.Month(4), 24, 9, 37, 2, 1, time.UTC)),
+				Success:            BoolPtr(true),
+				Attempt:            IntPtr(1),
 				Input:              []byte("input"),
+				Output:             []byte("output"),
+				Log:                []byte("log"),
 			},
 			expected: &Run{
 				JobID: JobID(1),
@@ -415,15 +421,15 @@ func TestSQLiteCreateRun(t *testing.T) {
 					Config: map[string]string{"p": "config"},
 				},
 				Status:             RunStatusPending,
-				StatusDetail:       "",
+				StatusDetail:       "status detail",
 				ScheduledStartTime: time.Date(2017, time.Month(2), 24, 9, 37, 2, 1, time.UTC),
-				StartTime:          nil,
-				EndTime:            nil,
+				StartTime:          TimePtr(time.Date(2017, time.Month(3), 24, 9, 37, 2, 1, time.UTC)),
+				EndTime:            TimePtr(time.Date(2017, time.Month(4), 24, 9, 37, 2, 1, time.UTC)),
 				Attempt:            1,
-				Success:            false,
+				Success:            true,
 				Input:              []byte("input"),
-				Output:             nil,
-				Log:                nil,
+				Output:             []byte("output"),
+				Log:                []byte("log"),
 			},
 		},
 	}
@@ -464,17 +470,17 @@ func TestSQLiteGetRuns(t *testing.T) {
 				&CreateRunInput{
 					JobID:  JobID(1),
 					Input:  []byte("r1"),
-					Status: RunStatusPending,
+					Status: RunStatusPtr(RunStatusPending),
 				},
 				&CreateRunInput{
 					JobID:  JobID(1),
 					Input:  []byte("r2"),
-					Status: RunStatusPending,
+					Status: RunStatusPtr(RunStatusPending),
 				},
 				&CreateRunInput{
 					JobID:  JobID(2),
 					Input:  []byte("r3"),
-					Status: RunStatusPending,
+					Status: RunStatusPtr(RunStatusPending),
 				},
 			},
 			query: &GetRunsInput{
@@ -501,17 +507,17 @@ func TestSQLiteGetRuns(t *testing.T) {
 				&CreateRunInput{
 					JobID:  JobID(1),
 					Input:  []byte("r1"),
-					Status: RunStatusPending,
+					Status: RunStatusPtr(RunStatusPending),
 				},
 				&CreateRunInput{
 					JobID:  JobID(1),
 					Input:  []byte("r2"),
-					Status: RunStatusPending,
+					Status: RunStatusPtr(RunStatusPending),
 				},
 				&CreateRunInput{
 					JobID:  JobID(2),
 					Input:  []byte("r3"),
-					Status: RunStatusPending,
+					Status: RunStatusPtr(RunStatusPending),
 				},
 			},
 			query: &GetRunsInput{
@@ -532,17 +538,17 @@ func TestSQLiteGetRuns(t *testing.T) {
 				&CreateRunInput{
 					JobID:  JobID(1),
 					Input:  []byte("r1"),
-					Status: RunStatusPending,
+					Status: RunStatusPtr(RunStatusPending),
 				},
 				&CreateRunInput{
 					JobID:  JobID(1),
 					Input:  []byte("r2"),
-					Status: RunStatusComplete,
+					Status: RunStatusPtr(RunStatusComplete),
 				},
 				&CreateRunInput{
 					JobID:  JobID(2),
 					Input:  []byte("r3"),
-					Status: RunStatusRunning,
+					Status: RunStatusPtr(RunStatusPending),
 				},
 			},
 			query: &GetRunsInput{
@@ -554,6 +560,91 @@ func TestSQLiteGetRuns(t *testing.T) {
 					JobID:  JobID(1),
 					Input:  []byte("r2"),
 					Status: RunStatusComplete,
+				},
+			},
+		},
+		{
+			name: "by start time before",
+			createRuns: []*CreateRunInput{
+				&CreateRunInput{
+					JobID:     JobID(1),
+					Input:     []byte("r1"),
+					StartTime: TimePtr(time.Date(2017, time.Month(2), 28, 12, 13, 14, 15, time.UTC)),
+				},
+				&CreateRunInput{
+					JobID:     JobID(1),
+					Input:     []byte("r2"),
+					StartTime: TimePtr(time.Date(2017, time.Month(2), 28, 12, 13, 14, 17, time.UTC)),
+				},
+				&CreateRunInput{
+					JobID:     JobID(2),
+					Input:     []byte("r3"),
+					StartTime: TimePtr(time.Date(2017, time.Month(2), 28, 12, 13, 14, 19, time.UTC)),
+				},
+			},
+			query: &GetRunsInput{
+				StartTimeBefore: TimePtr(time.Date(2017, time.Month(2), 28, 12, 13, 14, 18, time.UTC)),
+			},
+			expected: []*Run{
+				&Run{
+					RunID:     RunID(1),
+					JobID:     JobID(1),
+					Input:     []byte("r1"),
+					Status:    RunStatusPending,
+					StartTime: TimePtr(time.Date(2017, time.Month(2), 28, 12, 13, 14, 15, time.UTC)),
+				},
+				&Run{
+					RunID:     RunID(2),
+					JobID:     JobID(1),
+					Input:     []byte("r2"),
+					Status:    RunStatusPending,
+					StartTime: TimePtr(time.Date(2017, time.Month(2), 28, 12, 13, 14, 17, time.UTC)),
+				},
+			},
+		},
+		{
+			name: "order by",
+			createRuns: []*CreateRunInput{
+				&CreateRunInput{
+					JobID:   JobID(1),
+					Input:   []byte("r1"),
+					EndTime: TimePtr(time.Date(2017, time.Month(2), 28, 12, 13, 14, 15, time.UTC)),
+				},
+				&CreateRunInput{
+					JobID:   JobID(1),
+					Input:   []byte("r2"),
+					EndTime: TimePtr(time.Date(2017, time.Month(2), 28, 12, 13, 14, 19, time.UTC)),
+				},
+				&CreateRunInput{
+					JobID:   JobID(1),
+					Input:   []byte("r3"),
+					EndTime: TimePtr(time.Date(2017, time.Month(2), 28, 12, 13, 14, 17, time.UTC)),
+				},
+			},
+			query: &GetRunsInput{
+				OrderBy: StringPtr("end_time"),
+			},
+			expected: []*Run{
+				&Run{
+					RunID:   RunID(1),
+					JobID:   JobID(1),
+					Input:   []byte("r1"),
+					Status:  RunStatusPending,
+					EndTime: TimePtr(time.Date(2017, time.Month(2), 28, 12, 13, 14, 15, time.UTC)),
+				},
+				&Run{
+					RunID:   RunID(3),
+					JobID:   JobID(1),
+					Input:   []byte("r3"),
+					Status:  RunStatusPending,
+					EndTime: TimePtr(time.Date(2017, time.Month(2), 28, 12, 13, 14, 17, time.UTC)),
+				},
+				&Run{
+					RunID:   RunID(2),
+					JobID:   JobID(1),
+					Input:   []byte("r2"),
+					Status:  RunStatusPending,
+					EndTime: TimePtr(time.Date(2017, time.Month(2), 28, 12, 13, 14, 19, time.UTC)),
 				},
 			},
 		},
@@ -574,14 +665,100 @@ func TestSQLiteGetRuns(t *testing.T) {
 		}
 
 		if len(runs) != len(test.expected) {
-			t.Errorf("%s: expected %d run, got %d", test.name, len(test.expected), len(runs))
+			t.Errorf("%s:\nexpected %d run\ngot %d", test.name, len(test.expected), len(runs))
 			t.FailNow()
 		}
 		for i, run := range runs {
 			if !reflect.DeepEqual(test.expected[i], run) {
-				t.Errorf("%s: expected %+v, got %+v", test.name, test.expected[i], run)
+				t.Errorf("%s:\nexpected %+v\ngot %+v", test.name, test.expected[i], run)
 			}
 		}
 		r.Close()
+	}
+}
+
+func TestSQLiteUpdateRun(t *testing.T) {
+	tests := []struct {
+		name      string
+		createRun *CreateRunInput
+		updateRun *UpdateRunInput
+		expected  *Run
+	}{
+		{
+			name: "test all fields",
+			createRun: &CreateRunInput{
+				ProcessorConfig: ProcessorConfig{
+					Type:   "type",
+					Config: map[string]string{"key": "val"},
+				},
+				Status:             RunStatusPtr(RunStatusPending),
+				StatusDetail:       StringPtr("detail"),
+				ScheduledStartTime: time.Date(1985, 1, 19, 2, 37, 12, 4, time.UTC),
+				Attempt:            IntPtr(1),
+				StartTime:          TimePtr(time.Date(1986, 1, 19, 2, 37, 12, 4, time.UTC)),
+				EndTime:            TimePtr(time.Date(1987, 1, 19, 2, 37, 12, 4, time.UTC)),
+				Success:            BoolPtr(false),
+				Input:              []byte("in"),
+				Output:             []byte("out"),
+				Log:                []byte("log"),
+			},
+			updateRun: &UpdateRunInput{
+				ProcessorConfig: &ProcessorConfig{
+					Type:   "type2",
+					Config: map[string]string{"key2": "val2"},
+				},
+				Status:             RunStatusPtr(RunStatusComplete),
+				StatusDetail:       StringPtr("detail2"),
+				ScheduledStartTime: TimePtr(time.Date(2015, 1, 19, 2, 37, 12, 4, time.UTC)),
+				Attempt:            IntPtr(2),
+				StartTime:          TimePtr(time.Date(2016, 1, 19, 2, 37, 12, 4, time.UTC)),
+				EndTime:            TimePtr(time.Date(2017, 1, 19, 2, 37, 12, 4, time.UTC)),
+				Success:            BoolPtr(true),
+				Input:              []byte("in2"),
+				Output:             []byte("out2"),
+				Log:                []byte("log2"),
+			},
+			expected: &Run{
+				ProcessorConfig: ProcessorConfig{
+					Type:   "type2",
+					Config: map[string]string{"key2": "val2"},
+				},
+				Status:             RunStatusComplete,
+				StatusDetail:       "detail2",
+				ScheduledStartTime: time.Date(2015, 1, 19, 2, 37, 12, 4, time.UTC),
+				Attempt:            2,
+				StartTime:          TimePtr(time.Date(2016, 1, 19, 2, 37, 12, 4, time.UTC)),
+				EndTime:            TimePtr(time.Date(2017, 1, 19, 2, 37, 12, 4, time.UTC)),
+				Success:            true,
+				Input:              []byte("in2"),
+				Output:             []byte("out2"),
+				Log:                []byte("log2"),
+			},
+		},
+	}
+	r := newTestRepo(t)
+	defer r.Close()
+	for _, test := range tests {
+		id, err := r.CreateRun(test.createRun)
+		if err != nil {
+			t.Fatal(err)
+		}
+		upd := test.updateRun
+		upd.RunID = id
+		err = r.UpdateRun(upd)
+		if err != nil {
+			t.Fatal(err)
+		}
+		jobs, err := r.GetRuns(&GetRunsInput{RunID: &id})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(jobs) != 1 {
+			t.Fatalf("expected 1 job, got %d", len(jobs))
+		}
+		test.expected.RunID = upd.RunID
+		if !reflect.DeepEqual(test.expected, jobs[0]) {
+			t.Errorf("%s: expected %s\ngot: %s", test.name, test.expected, jobs[0])
+		}
 	}
 }

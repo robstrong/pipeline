@@ -27,10 +27,6 @@ func (s *Service) ListenAndServe() error {
 	return nil
 }
 
-func TimePtr(t time.Time) *time.Time {
-	return &t
-}
-
 func (s *Service) startBackgroundWorker() {
 	ticker := time.NewTicker(time.Second) // can probably change this to run on the min?
 	defer ticker.Stop()

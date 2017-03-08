@@ -26,11 +26,11 @@ type GetRunsInput struct {
 
 type CreateRunInput struct {
 	JobID              JobID
-	Processor          ProcessorConfig
-	Status             RunStatus
+	ProcessorConfig    ProcessorConfig
+	Status             *RunStatus
 	StatusDetail       *string
 	ScheduledStartTime time.Time
-	Attempt            int
+	Attempt            *int
 	StartTime          *time.Time
 	EndTime            *time.Time
 	Success            *bool
@@ -40,14 +40,18 @@ type CreateRunInput struct {
 }
 
 type UpdateRunInput struct {
-	RunID        RunID
-	Status       *RunStatus
-	StatusDetail *string
-	StartTime    *time.Time
-	EndTime      *time.Time
-	Success      *bool
-	Output       []byte
-	Log          []byte
+	RunID              RunID
+	ProcessorConfig    *ProcessorConfig
+	Status             *RunStatus
+	StatusDetail       *string
+	ScheduledStartTime *time.Time
+	Attempt            *int
+	StartTime          *time.Time
+	EndTime            *time.Time
+	Success            *bool
+	Input              []byte
+	Output             []byte
+	Log                []byte
 }
 
 type CreateJobInput struct {

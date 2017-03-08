@@ -121,10 +121,6 @@ func (s *SQLiteRepo) GetJobs(in *GetJobsInput) ([]*Job, error) {
 	return jobs, nil
 }
 
-func StringPtr(s string) *string {
-	return &s
-}
-
 func parseGroupedJobIDs(s *string) (JobIDs, error) {
 	ids := JobIDs{}
 	if s == nil {
@@ -299,6 +295,7 @@ func (s *SQLiteRepo) GetRuns(in *GetRunsInput) ([]*Run, error) {
 		"id",
 		"job_id",
 		"status",
+		"status_detail",
 		"scheduled_start_time",
 		"start_time",
 		"end_time",
@@ -349,6 +346,7 @@ func (s *SQLiteRepo) GetRuns(in *GetRunsInput) ([]*Run, error) {
 			&run.RunID,
 			&run.JobID,
 			&run.Status,
+			&run.StatusDetail,
 			&run.ScheduledStartTime,
 			&run.StartTime,
 			&run.EndTime,
@@ -369,25 +367,59 @@ func (s *SQLiteRepo) GetRuns(in *GetRunsInput) ([]*Run, error) {
 		return nil, err
 	}
 	return runs, nil
-
 }
+
 func (s *SQLiteRepo) CreateRun(in *CreateRunInput) (RunID, error) {
-	procConfig, err := json.Marshal(in.Processor)
+	procConfig, err := json.Marshal(in.ProcessorConfig)
 	if err != nil {
 		return 0, errors.Wrap(err, "create run: err marshalling processor config")
 	}
-	insertSQL, args, err := sq.Insert("runs").
-		Columns(
-			"job_id",
-			"processor_config",
-			"status",
-			"scheduled_start_time",
-			"attempt",
-			"input",
-			"success",
-		).
-		Values(uint64(in.JobID), procConfig, in.Status, in.ScheduledStartTime, in.Attempt, in.Input, false).
-		ToSql()
+	valMap := map[string]interface{}{}
+	valMap["job_id"] = uint64(in.JobID)
+	valMap["processor_config"] = procConfig
+	valMap["scheduled_start_time"] = in.ScheduledStartTime
+
+	valMap["status_detail"] = ""
+	if in.StatusDetail != nil {
+		valMap["status_detail"] = *in.StatusDetail
+	}
+
+	if in.StartTime != nil {
+		valMap["start_time"] = *in.StartTime
+	}
+
+	if in.EndTime != nil {
+		valMap["end_time"] = *in.EndTime
+	}
+
+	valMap["success"] = false
+	if in.Success != nil {
+		valMap["success"] = *in.Success
+	}
+
+	if in.Input != nil {
+		valMap["input"] = in.Input
+	}
+
+	if in.Output != nil {
+		valMap["output"] = in.Output
+	}
+
+	if in.Log != nil {
+		valMap["log"] = in.Log
+	}
+
+	valMap["attempt"] = 0
+	if in.Attempt != nil {
+		valMap["attempt"] = *in.Attempt
+	}
+
+	valMap["status"] = RunStatusPending
+	if in.Status != nil {
+		valMap["status"] = *in.Status
+	}
+
+	insertSQL, args, err := sq.Insert("runs").SetMap(valMap).ToSql()
 	if err != nil {
 		return 0, errors.Wrap(err, "create run: err creating sql")
 	}
@@ -403,32 +435,48 @@ func (s *SQLiteRepo) CreateRun(in *CreateRunInput) (RunID, error) {
 }
 
 func (s *SQLiteRepo) UpdateRun(in *UpdateRunInput) error {
-	update := sq.Update("runs").Where(sq.Eq{"run_id": in.RunID})
+	update := sq.Update("runs").Where(sq.Eq{"id": in.RunID})
+	if in.ProcessorConfig != nil {
+		processor, err := json.Marshal(*in.ProcessorConfig)
+		if err != nil {
+			return err
+		}
+		update = update.Set("processor_config", processor)
+	}
 	if in.Status != nil {
-		update.Set("status", *in.Status)
+		update = update.Set("status", *in.Status)
 	}
 	if in.StatusDetail != nil {
-		update.Set("status_detail", in.StatusDetail)
+		update = update.Set("status_detail", in.StatusDetail)
+	}
+	if in.ScheduledStartTime != nil {
+		update = update.Set("scheduled_start_time", *in.ScheduledStartTime)
+	}
+	if in.Attempt != nil {
+		update = update.Set("attempt", *in.Attempt)
 	}
 	if in.StartTime != nil {
-		update.Set("start_time", *in.StartTime)
+		update = update.Set("start_time", *in.StartTime)
 	}
 	if in.EndTime != nil {
-		update.Set("end_time", *in.EndTime)
+		update = update.Set("end_time", *in.EndTime)
 	}
 	if in.Success != nil {
-		update.Set("success", *in.Success)
+		update = update.Set("success", *in.Success)
+	}
+	if in.Input != nil {
+		update = update.Set("input", in.Input)
 	}
 	if in.Output != nil {
-		update.Set("output", in.Output)
+		update = update.Set("output", in.Output)
 	}
 	if in.Log != nil {
-		update.Set("log", in.Log)
+		update = update.Set("log", in.Log)
 	}
 	updateSQL, args, err := update.ToSql()
 	if err != nil {
 		return err
 	}
-	_, err = s.DB.Exec(updateSQL, args)
+	_, err = s.DB.Exec(updateSQL, args...)
 	return err
 }

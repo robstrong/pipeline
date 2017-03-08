@@ -33,11 +33,6 @@ func (js *JobIDs) Scan(src interface{}) error {
 	return nil
 }
 
-func JobIDPtr(i uint64) *JobID {
-	jid := JobID(i)
-	return &jid
-}
-
 func (j JobID) String() string {
 	return strconv.FormatInt(int64(j), 10)
 }
@@ -168,11 +163,6 @@ func RunStatusFromString(s string) (RunStatus, error) {
 }
 
 type RunID uint64
-
-func RunIDPtr(r uint64) *RunID {
-	rid := RunID(r)
-	return &rid
-}
 
 func (r RunID) String() string {
 	return strconv.FormatInt(int64(r), 10)
